@@ -1,5 +1,6 @@
+import "dotenv/config"
 import express from "express"
-import line from "@line/bot-sdk"
+import { Client, middleware } from "@line/bot-sdk"
 
 const app = express()
 
@@ -14,10 +15,10 @@ if (!config.channelAccessToken || !config.channelSecret) {
   process.exit(1)
 }
 
-const client = new line.Client(config)
+const client = new Client(config)
 
 // ===== Webhook =====
-app.post("/webhook", line.middleware(config), async (req, res) => {
+app.post("/webhook", middleware(config), async (req, res) => {
   try {
     await Promise.all(req.body.events.map(handleEvent))
     res.status(200).send("OK")
