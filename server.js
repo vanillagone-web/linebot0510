@@ -1,8 +1,13 @@
 import "dotenv/config"
 import express from "express"
 import { Client, middleware } from "@line/bot-sdk"
+import { initializeApp, getApps } from "firebase-admin/app"
+import { getFirestore, FieldValue } from "firebase-admin/firestore"
 
 const app = express()
+const FIRESTORE_DATABASE_ID = "line-todo-bot"
+const firebaseApp = getApps().length === 0 ? initializeApp() : getApps()[0]
+const db = getFirestore(firebaseApp, FIRESTORE_DATABASE_ID)
 
 // ===== 讀取環境變數 =====
 const config = {
@@ -16,9 +21,6 @@ if (!config.channelAccessToken || !config.channelSecret) {
 }
 
 const client = new Client(config)
-
-const tasks = []
-let nextTaskId = 1
 
 // ===== Webhook =====
 app.post("/webhook", middleware(config), async (req, res) => {
@@ -48,7 +50,8 @@ async function handleEvent(event) {
   }
 
   const text = event.message.text.trim()
-  const replyText = handleTextCommand(text)
+  const scope = getSourceScope(event)
+  const replyText = await handleTextCommand(text, scope)
 
   try {
     return await client.replyMessage(event.replyToken, {
@@ -62,6 +65,44 @@ async function handleEvent(event) {
       data: err.response?.data
     })
     return null
+  }
+}
+
+function getSourceScope(event) {
+  const source = event.source || {}
+
+  if (source.type === "group") {
+    return {
+      sourceType: "group",
+      sourceId: source.groupId,
+      sourceKey: `group_${source.groupId}`,
+      userId: source.userId || null,
+      groupId: source.groupId,
+      roomId: null,
+      createdBy: source.userId || null
+    }
+  }
+
+  if (source.type === "room") {
+    return {
+      sourceType: "room",
+      sourceId: source.roomId,
+      sourceKey: `room_${source.roomId}`,
+      userId: source.userId || null,
+      groupId: null,
+      roomId: source.roomId,
+      createdBy: source.userId || null
+    }
+  }
+
+  return {
+    sourceType: "user",
+    sourceId: source.userId,
+    sourceKey: `user_${source.userId}`,
+    userId: source.userId || null,
+    groupId: null,
+    roomId: null,
+    createdBy: source.userId || null
   }
 }
 
@@ -81,7 +122,7 @@ function parseTaskId(idText) {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
-function addTask(content) {
+async function addTask(content, scope) {
   if (!content) {
     return `請輸入任務內容。
 
@@ -89,42 +130,83 @@ function addTask(content) {
 新增 買牛奶`
   }
 
-  const task = {
-    id: nextTaskId,
-    content,
-    completed: false,
-    createdAt: new Date().toISOString(),
-    completedAt: null
+  try {
+    const taskRef = db.collection("tasks").doc()
+    let lineTaskNo = 1
+
+    await db.runTransaction(async (transaction) => {
+      const counterRef = db.collection("taskCounters").doc(scope.sourceKey)
+      const counterSnapshot = await transaction.get(counterRef)
+      lineTaskNo = counterSnapshot.exists ? counterSnapshot.data().nextTaskNo : 1
+      const nextTaskNo = lineTaskNo + 1
+
+      transaction.set(counterRef, {
+        sourceType: scope.sourceType,
+        sourceId: scope.sourceId,
+        nextTaskNo,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true })
+
+      transaction.set(taskRef, {
+        content,
+        completed: false,
+        createdAt: FieldValue.serverTimestamp(),
+        completedAt: null,
+        deletedAt: null,
+        updatedAt: FieldValue.serverTimestamp(),
+        lineTaskNo,
+        sourceType: scope.sourceType,
+        sourceId: scope.sourceId,
+        sourceKey: scope.sourceKey,
+        userId: scope.userId,
+        groupId: scope.groupId,
+        roomId: scope.roomId,
+        createdBy: scope.createdBy
+      })
+    })
+
+    return `已新增任務 #${lineTaskNo}
+${content}`
+  } catch (err) {
+    console.error("Firestore addTask failed", err)
+    return "任務系統暫時發生問題，請稍後再試。"
   }
-
-  tasks.push(task)
-  nextTaskId += 1
-
-  return `已新增任務 #${task.id}
-${task.content}`
 }
 
-function listTasks() {
-  const activeTasks = tasks.filter((task) => !task.completed)
+async function listTasks(scope) {
+  try {
+    const snapshot = await db.collection("tasks")
+      .where("sourceKey", "==", scope.sourceKey)
+      .where("completed", "==", false)
+      .where("deletedAt", "==", null)
+      .orderBy("lineTaskNo", "asc")
+      .limit(21)
+      .get()
 
-  if (activeTasks.length === 0) {
-    return `目前沒有未完成任務。
+    const activeTasks = snapshot.docs.map((doc) => doc.data())
+
+    if (activeTasks.length === 0) {
+      return `目前沒有未完成任務。
 
 輸入「新增 任務內容」來建立第一個任務。`
-  }
+    }
 
-  const visibleTasks = activeTasks.slice(0, 20)
-  const taskLines = visibleTasks.map((task) => `#${task.id} ${task.content}`).join("\n")
-  const limitText = activeTasks.length > 20 ? "\n\n僅顯示前 20 筆未完成任務。" : ""
+    const visibleTasks = activeTasks.slice(0, 20)
+    const taskLines = visibleTasks.map((task) => `#${task.lineTaskNo} ${task.content}`).join("\n")
+    const limitText = activeTasks.length > 20 ? "\n\n僅顯示前 20 筆未完成任務。" : ""
 
-  return `目前未完成任務：
+    return `目前未完成任務：
 
 ${taskLines}${limitText}
 
 輸入「完成 1」可完成任務。`
+  } catch (err) {
+    console.error("Firestore listTasks failed", err)
+    return "任務系統暫時發生問題，請稍後再試。"
+  }
 }
 
-function completeTask(idText) {
+async function completeTask(idText, scope) {
   const id = parseTaskId(idText)
 
   if (!id) {
@@ -134,22 +216,39 @@ function completeTask(idText) {
 完成 1`
   }
 
-  const task = tasks.find((item) => item.id === id && !item.completed)
+  try {
+    const snapshot = await db.collection("tasks")
+      .where("sourceKey", "==", scope.sourceKey)
+      .where("lineTaskNo", "==", id)
+      .where("deletedAt", "==", null)
+      .where("completed", "==", false)
+      .limit(1)
+      .get()
 
-  if (!task) {
-    return `找不到未完成任務 #${id}。
+    if (snapshot.empty) {
+      return `找不到未完成任務 #${id}。
 
 請輸入「任務」查看目前未完成任務。`
-  }
+    }
 
-  task.completed = true
-  task.completedAt = new Date().toISOString()
+    const taskDoc = snapshot.docs[0]
+    const task = taskDoc.data()
 
-  return `已完成任務 #${task.id}
+    await taskDoc.ref.update({
+      completed: true,
+      completedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    })
+
+    return `已完成任務 #${task.lineTaskNo}
 ${task.content}`
+  } catch (err) {
+    console.error("Firestore completeTask failed", err)
+    return "任務系統暫時發生問題，請稍後再試。"
+  }
 }
 
-function deleteTask(idText) {
+async function deleteTask(idText, scope) {
   const id = parseTaskId(idText)
 
   if (!id) {
@@ -159,42 +258,58 @@ function deleteTask(idText) {
 刪除 1`
   }
 
-  const taskIndex = tasks.findIndex((task) => task.id === id)
+  try {
+    const snapshot = await db.collection("tasks")
+      .where("sourceKey", "==", scope.sourceKey)
+      .where("lineTaskNo", "==", id)
+      .where("deletedAt", "==", null)
+      .limit(1)
+      .get()
 
-  if (taskIndex === -1) {
-    return `找不到任務 #${id}。
+    if (snapshot.empty) {
+      return `找不到任務 #${id}。
 
 請輸入「任務」查看目前未完成任務。`
-  }
+    }
 
-  const [task] = tasks.splice(taskIndex, 1)
+    const taskDoc = snapshot.docs[0]
+    const task = taskDoc.data()
 
-  return `已刪除任務 #${task.id}
+    await taskDoc.ref.update({
+      deletedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    })
+
+    return `已刪除任務 #${task.lineTaskNo}
 ${task.content}`
+  } catch (err) {
+    console.error("Firestore deleteTask failed", err)
+    return "任務系統暫時發生問題，請稍後再試。"
+  }
 }
 
-function handleTextCommand(text) {
+async function handleTextCommand(text, scope) {
   if (text === "說明") {
     return getHelpText()
   }
 
   if (text === "任務" || text === "查看任務") {
-    return listTasks()
+    return await listTasks(scope)
   }
 
   if (text.startsWith("新增 ")) {
     const content = text.slice("新增 ".length).trim()
-    return addTask(content)
+    return await addTask(content, scope)
   }
 
   if (text.startsWith("完成 ")) {
     const idText = text.slice("完成 ".length).trim()
-    return completeTask(idText)
+    return await completeTask(idText, scope)
   }
 
   if (text.startsWith("刪除 ")) {
     const idText = text.slice("刪除 ".length).trim()
-    return deleteTask(idText)
+    return await deleteTask(idText, scope)
   }
 
   return `我目前看不懂這個指令。

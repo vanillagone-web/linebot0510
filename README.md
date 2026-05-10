@@ -109,19 +109,47 @@ Command behavior:
 
 The task list shows only the first 20 incomplete tasks.
 
-## Memory Mode Limitations
+## Firestore Persistence
 
-This version stores tasks in server memory only.
+Tasks are stored in Firestore using `firebase-admin`.
 
-Important limitations:
+Firestore settings:
 
-- Tasks disappear when Cloud Run restarts, redeploys, or replaces an instance.
-- If Cloud Run runs multiple instances, each instance may have a different in-memory task list.
-- This version does not separate tasks by LINE user or LINE group.
-- Anyone who can message the bot can add, complete, or delete tasks.
-- This is a first-version smoke test, not a production data persistence implementation.
+```text
+projectId: my-line-todo-new
+databaseId: line-todo-bot
+location: asia-east1
+type: FIRESTORE_NATIVE
+```
 
-For production persistence, Firestore is the recommended next database option for this Cloud Run + LINE Bot setup.
+The app explicitly uses the `line-todo-bot` database, not the `(default)` database.
+
+Collections:
+
+- `tasks`: task documents.
+- `taskCounters`: per-LINE-source counters for task numbers.
+
+Tasks are separated by `sourceKey`:
+
+- Personal chat: `user_${userId}`
+- Group chat: `group_${groupId}`
+- Room chat: `room_${roomId}`
+
+Deleting a task uses soft delete by setting `deletedAt`; documents are not physically deleted.
+
+Cloud Run requirements:
+
+- The Cloud Run service account needs `roles/datastore.user`.
+- Do not download a service account JSON file.
+- Do not commit service account keys or local credentials.
+
+Some Firestore queries may require composite indexes. If an index is missing, Cloud Run logs will include a Firestore link to create the required index.
+
+For local Firestore testing with Google Application Default Credentials:
+
+```bash
+gcloud auth application-default login
+```
 
 ## Cloud Run Notes
 
