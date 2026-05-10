@@ -71,6 +71,58 @@ For Cloud Run, use the deployed service URL:
 https://YOUR_CLOUD_RUN_URL/webhook
 ```
 
+## LINE Bot Task Commands
+
+The first task-management version supports plain text commands only.
+
+Available commands:
+
+```text
+新增 任務內容
+任務
+查看任務
+完成 任務編號
+刪除 任務編號
+說明
+```
+
+Examples:
+
+```text
+說明
+新增 買牛奶
+新增 修正首頁 bug
+任務
+查看任務
+完成 1
+刪除 2
+```
+
+Command behavior:
+
+- `新增 任務內容` creates a task.
+- `任務` and `查看任務` show incomplete tasks.
+- `完成 任務編號` marks an incomplete task as completed.
+- `刪除 任務編號` deletes a task.
+- `說明` shows the command list.
+- Unknown commands ask the user to type `說明`.
+
+The task list shows only the first 20 incomplete tasks.
+
+## Memory Mode Limitations
+
+This version stores tasks in server memory only.
+
+Important limitations:
+
+- Tasks disappear when Cloud Run restarts, redeploys, or replaces an instance.
+- If Cloud Run runs multiple instances, each instance may have a different in-memory task list.
+- This version does not separate tasks by LINE user or LINE group.
+- Anyone who can message the bot can add, complete, or delete tasks.
+- This is a first-version smoke test, not a production data persistence implementation.
+
+For production persistence, Firestore is the recommended next database option for this Cloud Run + LINE Bot setup.
+
 ## Cloud Run Notes
 
 This stage deploys only the LINE webhook server to Cloud Run.
