@@ -72,14 +72,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, curren
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Webhook URL</p>
                   <div 
                     onClick={() => {
-                      const url = `${window.location.origin}/api/line/webhook`;
+                      const url = `${window.location.origin}/webhook`;
                       navigator.clipboard.writeText(url);
                       alert('Webhook URL 已複製！');
                     }}
                     className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border border-dashed border-primary/30 cursor-pointer hover:bg-primary/5 transition-colors group"
                   >
                     <p className="text-[10px] font-mono break-all text-zinc-600 dark:text-zinc-400 group-hover:text-primary">
-                      {window.location.origin}/api/line/webhook
+                      {window.location.origin}/webhook
                     </p>
                   </div>
                 </div>
