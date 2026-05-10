@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #17cfcf;
+  --color-primary-green: #17cf54;
+  --color-urgent: #E78278;
+  --color-background-light: #f6f8f8;
+  --color-background-dark: #101f22;
+  
+  --font-display: "Lexend", "Noto Sans TC", sans-serif;
+  --font-jakarta: "Plus Jakarta Sans", sans-serif;
+  --font-manrope: "Manrope", sans-serif;
+}
+
+.ios-blur {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.line-bg {
+  background-color: #8cabd9;
+}

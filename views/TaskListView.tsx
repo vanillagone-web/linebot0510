@@ -1,0 +1,383 @@
+
+import React, { useState, useMemo, KeyboardEvent } from 'react';
+import { ViewState, Task, Member, Group } from '../types';
+import BottomNavBar from '../components/BottomNavBar';
+
+interface TaskListViewProps {
+  onNavigate: (view: ViewState) => void;
+  onSelectTask: (taskId: string) => void;
+  members: Member[];
+  tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  currentUser: Member;
+  activeGroup: Group;
+  allGroups: Group[];
+  onSwitchGroup: (groupId: string) => void;
+}
+
+const PRESET_COLORS = ['#17cfcf', '#10B981', '#F59E0B', '#E78278', '#8B5CF6', '#3B82F6', '#EC4899', '#64748B'];
+
+const ColorPicker: React.FC<{ selectedColor: string; onColorSelect: (color: string) => void }> = ({ selectedColor, onColorSelect }) => {
+  const isPreset = PRESET_COLORS.includes(selectedColor);
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PRESET_COLORS.map(color => (
+        <button 
+          key={color}
+          type="button"
+          onClick={() => onColorSelect(color)}
+          className={`size-8 rounded-lg transition-all ring-offset-2 dark:ring-offset-zinc-900 shadow-sm ${selectedColor === color ? 'ring-2 ring-primary scale-110' : 'hover:scale-105 opacity-70'}`}
+          style={{ backgroundColor: color }}
+        />
+      ))}
+      <label 
+        className={`size-8 rounded-lg transition-all ring-offset-2 dark:ring-offset-zinc-900 flex items-center justify-center cursor-pointer border-2 border-dashed shadow-sm ${!isPreset ? 'ring-2 ring-primary scale-110 border-transparent' : 'border-gray-300 dark:border-zinc-700 opacity-70'}`}
+        style={!isPreset ? { backgroundColor: selectedColor } : {}}
+      >
+        <span className="material-symbols-outlined text-[14px]" style={!isPreset ? { mixBlendMode: 'difference', color: 'white' } : { color: '#9ca3af' }}>
+          colorize
+        </span>
+        <input 
+          type="color" 
+          className="sr-only" 
+          value={selectedColor} 
+          onChange={(e) => onColorSelect(e.target.value)} 
+        />
+      </label>
+    </div>
+  );
+};
+
+const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, members, tasks, setTasks, currentUser, activeGroup, allGroups, onSwitchGroup }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+
+  // 初始表單狀態
+  const initialFormState = {
+    title: '',
+    ticketNo: '',
+    ticketUrl: '',
+    tags: [] as string[],
+    description: '',
+    notes: '',
+    assigneeId: currentUser.id,
+    color: PRESET_COLORS[0],
+    priority: 'MEDIUM' as Task['priority'],
+    dueDate: new Date().toISOString().split('T')[0]
+  };
+
+  const [newTask, setNewTask] = useState(initialFormState);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(t => 
+      t.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (t.ticketNo && t.ticketNo.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [tasks, searchTerm]);
+
+  // 處理標籤新增 (Enter)
+  const handleTagInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = tagInput.trim();
+      if (val) {
+        setNewTask(prev => {
+          if (prev.tags.includes(val)) return prev;
+          return { ...prev, tags: [...prev.tags, val] };
+        });
+      }
+      setTagInput('');
+    } else if (e.key === 'Backspace' && !tagInput && newTask.tags.length > 0) {
+      const newTags = [...newTask.tags];
+      newTags.pop();
+      setNewTask(prev => ({ ...prev, tags: newTags }));
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setNewTask(prev => ({ 
+      ...prev, 
+      tags: prev.tags.filter(t => t !== tagToRemove) 
+    }));
+  };
+
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTask.title.trim()) return;
+    
+    const assignedMember = members.find(m => m.id === newTask.assigneeId) || currentUser;
+    const nowStr = new Date().toLocaleString();
+    
+    const maxId = tasks.reduce((max, t) => {
+      const numericId = parseInt(t.id);
+      return isNaN(numericId) ? max : Math.max(max, numericId);
+    }, 1000); 
+    const nextSerialId = (maxId + 1).toString();
+
+    const task: Task = {
+      id: nextSerialId,
+      groupId: activeGroup.id,
+      ticketNo: newTask.ticketNo,
+      title: newTask.title,
+      description: newTask.description,
+      notes: newTask.notes,
+      ticketUrl: newTask.ticketUrl,
+      tags: newTask.tags,
+      status: 'PENDING',
+      priority: newTask.priority,
+      dueDate: newTask.dueDate, 
+      assignee: assignedMember.name,
+      department: '', 
+      color: newTask.color,
+      reminders: [],
+      createdBy: currentUser.name,
+      createdAt: nowStr,
+      updatedAt: nowStr,
+      subTasks: [],
+    };
+
+    setTasks(prev => [task, ...prev]);
+    setIsCreateModalOpen(false);
+    setNewTask(initialFormState);
+    setTagInput('');
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#f8fafb] dark:bg-zinc-950 font-jakarta">
+      {/* Group Header & Switcher */}
+      <nav className="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-4 py-3 flex items-center justify-between shadow-sm">
+        <button 
+          onClick={() => setIsGroupSwitcherOpen(!isGroupSwitcherOpen)}
+          className="flex items-center gap-3 active:scale-95 transition-all"
+        >
+           <img src={activeGroup.avatar} className="size-9 rounded-xl shadow-inner" alt="" />
+           <div className="text-left">
+             <div className="flex items-center gap-1">
+               <h2 className="text-sm font-black dark:text-white leading-tight">{activeGroup.name}</h2>
+               <span className="material-symbols-outlined text-xs text-gray-400">expand_more</span>
+             </div>
+             <p className="text-[9px] text-primary font-black uppercase tracking-widest">機器人群組已連動</p>
+           </div>
+        </button>
+        <button onClick={() => setIsCreateModalOpen(true)} className="size-10 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+          <span className="material-symbols-outlined">add</span>
+        </button>
+      </nav>
+
+      {/* Group Switcher Dropdown */}
+      {isGroupSwitcherOpen && (
+        <div className="absolute top-16 left-4 z-50 w-56 bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-zinc-800 p-2 animate-in zoom-in duration-200">
+          {allGroups.map(g => (
+            <button 
+              key={g.id} 
+              onClick={() => { onSwitchGroup(g.id); setIsGroupSwitcherOpen(false); }}
+              className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${activeGroup.id === g.id ? 'bg-primary/10 text-primary' : 'hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-500'}`}
+            >
+              <img src={g.avatar} className="size-8 rounded-lg" alt="" />
+              <span className="text-xs font-black">{g.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <main className="flex-1 overflow-y-auto pb-32 px-4 pt-4 hide-scrollbar">
+        <div className="mb-6 space-y-4">
+           <div className="relative">
+             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+             <input 
+               type="text" 
+               placeholder="搜尋任務或工單..." 
+               className="w-full bg-white dark:bg-zinc-900 border-none rounded-2xl py-3.5 pl-12 pr-4 shadow-sm text-sm focus:ring-2 focus:ring-primary/20 transition-all dark:text-white"
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
+           </div>
+        </div>
+
+        <div className="space-y-4">
+          {filteredTasks.length > 0 ? filteredTasks.map((task) => {
+            const subTaskTotal = task.subTasks?.length || 0;
+            const subTaskDone = task.subTasks?.filter(st => st.isCompleted).length || 0;
+            const progress = subTaskTotal > 0 ? (subTaskDone / subTaskTotal) * 100 : 0;
+            const taskBaseColor = task.color || '#17cfcf';
+
+            return (
+              <div 
+                key={task.id} 
+                onClick={() => onSelectTask(task.id)}
+                className="p-4 rounded-[28px] shadow-sm border border-gray-100 dark:border-zinc-800/50 flex flex-col gap-3 relative overflow-hidden transition-all active:scale-[0.98] cursor-pointer" 
+                style={{ 
+                  borderLeft: `6px solid ${taskBaseColor}`,
+                  backgroundColor: `${taskBaseColor}12` // 約 7% 透明度的背景色
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black text-blue-500 uppercase">{task.ticketNo || '無工單'}</span>
+                        <span className="text-[8px] font-bold text-zinc-400">ID: {task.id}</span>
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${
+                          task.priority === 'HIGH' ? 'bg-red-500 text-white' : 
+                          task.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-500' : 'bg-gray-100 text-gray-500'
+                        }`}>{task.priority}</span>
+                      </div>
+                      {task.status === 'COMPLETED' && <span className="material-symbols-outlined text-green-500 text-sm fill-icon">check_circle</span>}
+                    </div>
+                    <p className={`text-[#111818] dark:text-white font-bold truncate text-sm ${task.status === 'COMPLETED' ? 'line-through opacity-50' : ''}`}>{task.title}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[9px] font-black uppercase" style={{ color: taskBaseColor }}>@{task.assignee}</span>
+                      {task.tags && task.tags.length > 0 && (
+                        <>
+                          <span className="size-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
+                          <span className="text-[9px] text-zinc-500 font-bold uppercase truncate max-w-[80px]">{task.tags[0]}</span>
+                        </>
+                      )}
+                      <span className="size-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
+                      <span className="text-[9px] text-zinc-500 font-bold uppercase">{task.dueDate.split(' ')[0]}</span>
+                    </div>
+                  </div>
+                  <div className="size-9 rounded-2xl bg-white/60 dark:bg-black/20 flex items-center justify-center text-primary-green transition-all self-center shadow-sm">
+                    <span className="material-symbols-outlined text-xl font-black" style={{ color: taskBaseColor }}>play_arrow</span>
+                  </div>
+                </div>
+
+                {subTaskTotal > 0 && (
+                  <div className="mt-1">
+                    <div className="flex items-center justify-between mb-1.5 px-0.5">
+                      <p className="text-[8px] font-black text-gray-500 dark:text-zinc-400 uppercase tracking-widest">
+                        子任務進度 ({subTaskDone}/{subTaskTotal})
+                      </p>
+                      <p className="text-[8px] font-black" style={{ color: taskBaseColor }}>{Math.round(progress)}%</p>
+                    </div>
+                    <div className="w-full h-1 bg-white/50 dark:bg-zinc-800 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
+                      <div 
+                        className="h-full transition-all duration-500 ease-out" 
+                        style={{ width: `${progress}%`, backgroundColor: taskBaseColor }} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }) : (
+            <div className="text-center py-20">
+              <span className="material-symbols-outlined text-gray-200 dark:text-zinc-800 text-6xl">cloud_off</span>
+              <p className="text-xs text-gray-400 font-bold mt-4 uppercase">此群組目前沒有任務</p>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Create Task Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-[420px] bg-white dark:bg-zinc-900 rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-500 max-h-[95vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900 sticky top-0 z-10">
+              <div className="flex items-center gap-2">
+                <div className="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined">add_task</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-zinc-900 dark:text-white italic">建立新任務</h3>
+                  <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">系統將自動產生流水 ID</p>
+                </div>
+              </div>
+              <button onClick={() => setIsCreateModalOpen(false)} className="size-8 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-zinc-400 active:scale-90">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 hide-scrollbar">
+              <form onSubmit={handleCreateTask} className="space-y-6 pb-4">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">任務標題 *</p>
+                    <input autoFocus required type="text" placeholder="例如：設計雙11活動Banner" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3.5 px-4 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">工單編號</p>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-300 text-sm">confirmation_number</span>
+                      <input type="text" placeholder="請手動輸入工單號碼" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 pl-10 pr-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={newTask.ticketNo} onChange={(e) => setNewTask({ ...newTask, ticketNo: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-[32px] space-y-4 border border-zinc-100 dark:border-zinc-800">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">外部 URL</p>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-300 text-sm">link</span>
+                      <input type="url" placeholder="https://jira.com/..." className="w-full bg-white dark:bg-zinc-800 border-none rounded-xl py-2.5 pl-10 pr-4 text-[11px] font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={newTask.ticketUrl} onChange={(e) => setNewTask({ ...newTask, ticketUrl: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">標籤</p>
+                    <div className="bg-white dark:bg-zinc-800 border-none rounded-xl p-2 flex flex-wrap gap-2 items-center min-h-[46px] focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                      {newTask.tags.map(tag => (
+                        <span key={tag} className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase animate-in zoom-in duration-200">
+                          {tag}
+                          <button type="button" onClick={() => removeTag(tag)} className="hover:text-primary-green transition-colors">
+                            <span className="material-symbols-outlined text-[12px] font-bold">close</span>
+                          </button>
+                        </span>
+                      ))}
+                      <input type="text" placeholder={newTask.tags.length === 0 ? "前台, 後台, 訂單 (按 Enter 建立)" : ""} className="flex-1 bg-transparent border-none focus:ring-0 text-[11px] font-bold dark:text-white p-1 min-w-[120px]" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={handleTagInputKeyDown} />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">任務描述</p>
+                    <textarea rows={2} placeholder="描述任務內容與目標..." className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20 resize-none" value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">處理備註</p>
+                    <textarea rows={2} placeholder="補充特定注意事項或處理細節..." className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20 resize-none" value={newTask.notes} onChange={(e) => setNewTask({ ...newTask, notes: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">截止日期</p>
+                    <input type="date" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={newTask.dueDate} onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">指派執行者</p>
+                    <select className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={newTask.assigneeId} onChange={(e) => setNewTask({ ...newTask, assigneeId: e.target.value })}>
+                      {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 items-center">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">優先權</p>
+                    <div className="flex bg-zinc-50 dark:bg-zinc-800 p-1 rounded-2xl gap-1">
+                      {(['LOW', 'MEDIUM', 'HIGH'] as Task['priority'][]).map(p => (
+                        <button key={p} type="button" onClick={() => setNewTask({ ...newTask, priority: p })} className={`flex-1 py-1.5 rounded-xl text-[8px] font-black transition-all ${newTask.priority === p ? (p === 'HIGH' ? 'bg-red-500 text-white' : p === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-primary text-white') : 'text-zinc-400'}`}>
+                          {p === 'HIGH' ? '高' : p === 'MEDIUM' ? '中' : '低'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pl-2">
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">識別色彩</p>
+                    <ColorPicker selectedColor={newTask.color} onColorSelect={(color) => setNewTask({ ...newTask, color })} />
+                  </div>
+                </div>
+                <div className="pt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pb-2">
+                  <button type="submit" className="w-full h-14 bg-primary text-white rounded-[24px] font-black text-sm uppercase shadow-xl shadow-primary/20 active:scale-95 transition-all">確認建立任務</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      <BottomNavBar currentView="TASK_LIST" onNavigate={onNavigate} />
+    </div>
+  );
+};
+
+export default TaskListView;

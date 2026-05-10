@@ -1,0 +1,5 @@
+{
+  "name": "Task Manager Bot",
+  "description": "A comprehensive task management application integrated with LINE Messaging API, featuring real-time notifications, group dashboards, and automated task tracking.",
+  "requestFramePermissions": []
+}
