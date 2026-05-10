@@ -20,7 +20,13 @@ const client = new Client(config)
 // ===== Webhook =====
 app.post("/webhook", middleware(config), async (req, res) => {
   try {
-    await Promise.all(req.body.events.map(handleEvent))
+    const events = Array.isArray(req.body?.events) ? req.body.events : []
+
+    if (events.length === 0) {
+      return res.status(200).send("OK")
+    }
+
+    await Promise.all(events.map(handleEvent))
     res.status(200).send("OK")
   } catch (err) {
     console.error(err)

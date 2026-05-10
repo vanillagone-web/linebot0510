@@ -73,17 +73,44 @@ https://YOUR_CLOUD_RUN_URL/webhook
 
 ## Cloud Run Notes
 
-This project can currently be deployed to Cloud Run as a LINE webhook server.
+This stage deploys only the LINE webhook server to Cloud Run.
+
+It does not serve the React frontend. After deployment, opening the Cloud Run service URL in a browser will only show:
+
+```text
+Service running
+```
+
+The LINE webhook URL should be:
+
+```text
+https://YOUR_CLOUD_RUN_URL/webhook
+```
+
+This project does not need a Dockerfile for the current server-only deployment. Use Google Cloud buildpacks from the source code.
 
 Basic requirements:
 
 - Configure `LINE_CHANNEL_ACCESS_TOKEN`.
 - Configure `LINE_CHANNEL_SECRET`.
+- Do not manually set `PORT`; Cloud Run provides it automatically.
 - Allow LINE to call the Cloud Run service URL.
 - Set the LINE Developers Console webhook URL to `https://YOUR_CLOUD_RUN_URL/webhook`.
 - Keep using `npm start` as the runtime start command.
 
-Important limitation: `npm start` currently runs only `server.js`. It does not serve the Vite frontend build output. Serving the frontend from Cloud Run would require an additional integration step, such as building the frontend and serving `dist` from Express.
+Example deploy command:
+
+```bash
+gcloud run deploy task-manager-bot \
+  --source . \
+  --region asia-east1 \
+  --allow-unauthenticated \
+  --set-env-vars LINE_CHANNEL_ACCESS_TOKEN=YOUR_TOKEN,LINE_CHANNEL_SECRET=YOUR_SECRET
+```
+
+For production, consider moving secrets to Secret Manager later. This stage keeps deployment simple and does not implement Secret Manager integration.
+
+Important limitation: `npm start` currently runs only `server.js`. It does not serve the Vite frontend build output. Serving the frontend from Cloud Run would require a separate future step, such as building the frontend and serving `dist` from Express.
 
 ## Useful Commands
 
