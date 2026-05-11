@@ -8,6 +8,15 @@ const app = express()
 const FIRESTORE_DATABASE_ID = "line-todo-bot"
 const firebaseApp = getApps().length === 0 ? initializeApp() : getApps()[0]
 const db = getFirestore(firebaseApp, FIRESTORE_DATABASE_ID)
+const WEB_SCOPE = {
+  sourceType: "web",
+  sourceId: "default",
+  sourceKey: "web_default",
+  userId: null,
+  groupId: null,
+  roomId: null,
+  createdBy: "web_default"
+}
 
 // ===== 讀取環境變數 =====
 const config = {
@@ -39,10 +48,212 @@ app.post("/webhook", middleware(config), async (req, res) => {
   }
 })
 
+app.use("/api", express.json())
+
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const snapshot = await db.collection("tasks")
+      .where("sourceKey", "==", WEB_SCOPE.sourceKey)
+      .where("deletedAt", "==", null)
+      .orderBy("lineTaskNo", "asc")
+      .get()
+
+    const tasks = snapshot.docs.map(firestoreTaskToReactTask)
+    res.status(200).json({ ok: true, tasks })
+  } catch (err) {
+    console.error("API get tasks failed", err)
+    res.status(500).json({
+      ok: false,
+      error: "任務系統暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
+app.post("/api/tasks", async (req, res) => {
+  try {
+    const title = typeof req.body?.title === "string" ? req.body.title.trim() : ""
+
+    if (!title) {
+      return res.status(400).json({
+        ok: false,
+        error: "title is required"
+      })
+    }
+
+    const taskRef = db.collection("tasks").doc()
+    let lineTaskNo = 1
+
+    await db.runTransaction(async (transaction) => {
+      lineTaskNo = await getNextTaskNoForScope(transaction, WEB_SCOPE)
+      transaction.set(taskRef, createWebTaskDocument({ ...req.body, title }, lineTaskNo))
+    })
+
+    const taskSnapshot = await taskRef.get()
+    res.status(201).json({
+      ok: true,
+      task: firestoreTaskToReactTask(taskSnapshot)
+    })
+  } catch (err) {
+    console.error("API create task failed", err)
+    res.status(500).json({
+      ok: false,
+      error: "任務系統暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
+app.patch("/api/tasks/:id/complete", async (req, res) => {
+  try {
+    const taskRef = db.collection("tasks").doc(req.params.id)
+    const taskSnapshot = await taskRef.get()
+
+    if (!taskSnapshot.exists || taskSnapshot.data().sourceKey !== WEB_SCOPE.sourceKey) {
+      return res.status(404).json({
+        ok: false,
+        error: "找不到任務"
+      })
+    }
+
+    await taskRef.update({
+      completed: true,
+      completedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      status: "COMPLETED"
+    })
+
+    const updatedSnapshot = await taskRef.get()
+    res.status(200).json({
+      ok: true,
+      task: firestoreTaskToReactTask(updatedSnapshot)
+    })
+  } catch (err) {
+    console.error("API complete task failed", err)
+    res.status(500).json({
+      ok: false,
+      error: "任務系統暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
+app.delete("/api/tasks/:id", async (req, res) => {
+  try {
+    const taskRef = db.collection("tasks").doc(req.params.id)
+    const taskSnapshot = await taskRef.get()
+
+    if (!taskSnapshot.exists || taskSnapshot.data().sourceKey !== WEB_SCOPE.sourceKey) {
+      return res.status(404).json({
+        ok: false,
+        error: "找不到任務"
+      })
+    }
+
+    await taskRef.update({
+      deletedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    })
+
+    res.status(200).json({ ok: true })
+  } catch (err) {
+    console.error("API delete task failed", err)
+    res.status(500).json({
+      ok: false,
+      error: "任務系統暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
 // ===== 健康檢查 =====
 app.get("/", (req, res) => {
   res.status(200).send("Service running")
 })
+
+function formatTimestamp(value) {
+  if (!value) return ""
+  if (typeof value.toDate === "function") return value.toDate().toLocaleString()
+  if (value instanceof Date) return value.toLocaleString()
+  return String(value)
+}
+
+function firestoreTaskToReactTask(doc) {
+  const data = doc.data()
+
+  return {
+    id: doc.id,
+    groupId: data.groupId || WEB_SCOPE.sourceKey,
+    ticketNo: data.ticketNo || `WEB-${data.lineTaskNo || doc.id}`,
+    title: data.title || data.content || "",
+    description: data.description || "",
+    status: data.status || (data.completed ? "COMPLETED" : "PENDING"),
+    priority: data.priority || "MEDIUM",
+    dueDate: data.dueDate || "",
+    assignee: data.assignee || "Web User",
+    department: data.department || "",
+    reminders: Array.isArray(data.reminders) ? data.reminders : [],
+    createdBy: data.createdBy || WEB_SCOPE.createdBy,
+    createdAt: formatTimestamp(data.createdAt),
+    updatedAt: formatTimestamp(data.updatedAt),
+    color: data.color || "#17cfcf",
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    notes: data.notes || "",
+    subTasks: Array.isArray(data.subTasks) ? data.subTasks : [],
+    lineTaskNo: data.lineTaskNo,
+    sourceKey: data.sourceKey
+  }
+}
+
+function createWebTaskDocument(payload, lineTaskNo) {
+  const allowedPriorities = new Set(["LOW", "MEDIUM", "HIGH"])
+  const priority = allowedPriorities.has(payload.priority) ? payload.priority : "MEDIUM"
+  const assignee = typeof payload.assignee === "string" && payload.assignee.trim()
+    ? payload.assignee.trim()
+    : "Web User"
+  const description = typeof payload.description === "string" ? payload.description.trim() : ""
+  const dueDate = typeof payload.dueDate === "string" ? payload.dueDate.trim() : ""
+
+  return {
+    content: payload.title,
+    title: payload.title,
+    description,
+    completed: false,
+    status: "PENDING",
+    priority,
+    dueDate,
+    assignee,
+    department: "",
+    reminders: [],
+    completedAt: null,
+    deletedAt: null,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    lineTaskNo,
+    sourceType: WEB_SCOPE.sourceType,
+    sourceId: WEB_SCOPE.sourceId,
+    sourceKey: WEB_SCOPE.sourceKey,
+    userId: WEB_SCOPE.userId,
+    groupId: WEB_SCOPE.groupId,
+    roomId: WEB_SCOPE.roomId,
+    createdBy: WEB_SCOPE.createdBy,
+    color: "#17cfcf",
+    tags: [],
+    notes: "",
+    subTasks: []
+  }
+}
+
+async function getNextTaskNoForScope(transaction, scope) {
+  const counterRef = db.collection("taskCounters").doc(scope.sourceKey)
+  const counterSnapshot = await transaction.get(counterRef)
+  const lineTaskNo = counterSnapshot.exists ? counterSnapshot.data().nextTaskNo : 1
+
+  transaction.set(counterRef, {
+    sourceType: scope.sourceType,
+    sourceId: scope.sourceId,
+    nextTaskNo: lineTaskNo + 1,
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true })
+
+  return lineTaskNo
+}
 
 async function handleEvent(event) {
   if (event.type !== "message" || event.message.type !== "text") {

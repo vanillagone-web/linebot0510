@@ -151,6 +151,97 @@ For local Firestore testing with Google Application Default Credentials:
 gcloud auth application-default login
 ```
 
+## Backend Task API
+
+The backend exposes a first-version task API for a future React frontend integration.
+
+Current frontend API scope:
+
+```text
+sourceType: web
+sourceId: default
+sourceKey: web_default
+createdBy: web_default
+```
+
+This keeps browser-created tasks separate from LINE Bot tasks, which use `user_${userId}`, `group_${groupId}`, or `room_${roomId}`.
+
+Endpoints:
+
+```text
+GET /api/tasks
+POST /api/tasks
+PATCH /api/tasks/:id/complete
+DELETE /api/tasks/:id
+```
+
+`GET /api/tasks` returns non-deleted `web_default` tasks in React `Task[]` shape:
+
+```json
+{
+  "ok": true,
+  "tasks": []
+}
+```
+
+`POST /api/tasks` creates a `web_default` task. Supported body fields:
+
+```json
+{
+  "title": "前端測試任務",
+  "description": "從 API 建立",
+  "priority": "MEDIUM",
+  "dueDate": "2026-05-11",
+  "assignee": "Web User"
+}
+```
+
+`PATCH /api/tasks/:id/complete` marks a task as completed. The `id` is the Firestore document id.
+
+`DELETE /api/tasks/:id` uses soft delete by setting `deletedAt`.
+
+API test commands:
+
+```bash
+curl http://localhost:8080/api/tasks
+```
+
+```bash
+curl -X POST http://localhost:8080/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "前端測試任務",
+    "description": "從 API 建立",
+    "priority": "MEDIUM",
+    "dueDate": "2026-05-11",
+    "assignee": "Web User"
+  }'
+```
+
+```bash
+curl -X PATCH http://localhost:8080/api/tasks/FIRESTORE_DOC_ID/complete
+```
+
+```bash
+curl -X DELETE http://localhost:8080/api/tasks/FIRESTORE_DOC_ID
+```
+
+Middleware note:
+
+- JSON parsing is mounted only on `/api` with `app.use("/api", express.json())`.
+- Do not mount `express.json()` globally before `/webhook`, because LINE webhook signature verification depends on the LINE SDK middleware receiving the request correctly.
+
+Firestore index note:
+
+- The API query for `tasks` may require a composite index for `sourceKey`, `deletedAt`, and `lineTaskNo`.
+- If Cloud Run logs show `The query requires an index`, create the linked composite index in Firestore Indexes.
+
+Frontend serving note:
+
+- This stage does not serve React `dist`.
+- No SPA fallback is configured yet.
+- Cloud Run still runs as a server-only API/webhook service.
+
 ## Cloud Run Notes
 
 This stage deploys only the LINE webhook server to Cloud Run.
