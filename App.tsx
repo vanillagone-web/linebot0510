@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ViewState, Member, Task } from './types';
 import { MOCK_MEMBERS, MOCK_TASKS, MOCK_GROUPS, isUserAdmin } from './constants';
 import LoginView from './views/LoginView';
@@ -12,17 +12,63 @@ import SettingsView from './views/SettingsView';
 import TaskExecutionView from './views/TaskExecutionView';
 import HelpView from './views/HelpView';
 
+type CreateTaskPayload = {
+  title: string;
+  description?: string;
+  priority: Task['priority'];
+  dueDate: string;
+  assignee: string;
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
   const [activeGroupId, setActiveGroupId] = useState<string>(MOCK_GROUPS[0].id);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [taskError, setTaskError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[0]);
 
   const activeGroup = MOCK_GROUPS.find(g => g.id === activeGroupId) || MOCK_GROUPS[0];
   const groupMembers = members.filter(m => m.groupIds.includes(activeGroupId) && m.isBotLinked);
-  const groupTasks = tasks.filter(t => t.groupId === activeGroupId);
+  const groupTasks = tasks.filter(t => t.groupId === activeGroupId || t.groupId === 'web_default');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTasks = async () => {
+      setIsLoadingTasks(true);
+      setTaskError(null);
+
+      try {
+        const response = await fetch('/api/tasks');
+        const data = await response.json();
+
+        if (!response.ok || data.ok !== true) {
+          throw new Error(data.error || '任務讀取失敗');
+        }
+
+        if (isMounted) {
+          setTasks(data.tasks);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setTaskError(err instanceof Error ? err.message : '任務讀取失敗');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingTasks(false);
+        }
+      }
+    };
+
+    loadTasks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const navigateToExecution = (taskId: string) => {
     setSelectedTaskId(taskId);
@@ -64,6 +110,30 @@ const App: React.FC = () => {
   const handleDeleteTask = (taskId: string) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
     setCurrentView('TASK_LIST');
+  };
+
+  const handleCreateTask = async (payload: CreateTaskPayload) => {
+    setTaskError(null);
+
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.ok !== true) {
+        throw new Error(data.error || '任務建立失敗');
+      }
+
+      setTasks(prev => [data.task, ...prev]);
+      return data.task as Task;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '任務建立失敗';
+      setTaskError(message);
+      throw err;
+    }
   };
 
   const handleSwitchGroup = (groupId: string) => {
@@ -109,7 +179,7 @@ const App: React.FC = () => {
             onSelectTask={navigateToExecution} 
             members={groupMembers}
             tasks={groupTasks}
-            setTasks={setTasks}
+            onCreateTask={handleCreateTask}
             currentUser={currentUser}
             activeGroup={activeGroup}
             allGroups={MOCK_GROUPS}
@@ -171,6 +241,11 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex justify-center transition-colors duration-500">
       <div className="relative w-full max-w-[430px] h-screen bg-white dark:bg-zinc-950 shadow-2xl overflow-hidden flex flex-col">
+        {(isLoadingTasks || taskError) && (
+          <div className="absolute top-3 left-3 right-3 z-[120] rounded-2xl bg-zinc-900/90 px-4 py-3 text-xs font-bold text-white shadow-lg">
+            {isLoadingTasks ? '正在讀取任務資料...' : `任務讀取失敗：${taskError}`}
+          </div>
+        )}
         {renderView()}
       </div>
     </div>

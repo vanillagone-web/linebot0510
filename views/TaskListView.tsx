@@ -8,7 +8,13 @@ interface TaskListViewProps {
   onSelectTask: (taskId: string) => void;
   members: Member[];
   tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  onCreateTask: (payload: {
+    title: string;
+    description?: string;
+    priority: Task['priority'];
+    dueDate: string;
+    assignee: string;
+  }) => Promise<Task>;
   currentUser: Member;
   activeGroup: Group;
   allGroups: Group[];
@@ -49,11 +55,13 @@ const ColorPicker: React.FC<{ selectedColor: string; onColorSelect: (color: stri
   );
 };
 
-const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, members, tasks, setTasks, currentUser, activeGroup, allGroups, onSwitchGroup }) => {
+const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, members, tasks, onCreateTask, currentUser, activeGroup, allGroups, onSwitchGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
   const [tagInput, setTagInput] = useState('');
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // 初始表單狀態
   const initialFormState = {
@@ -105,45 +113,32 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
     }));
   };
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title.trim()) return;
     
     const assignedMember = members.find(m => m.id === newTask.assigneeId) || currentUser;
-    const nowStr = new Date().toLocaleString();
-    
-    const maxId = tasks.reduce((max, t) => {
-      const numericId = parseInt(t.id);
-      return isNaN(numericId) ? max : Math.max(max, numericId);
-    }, 1000); 
-    const nextSerialId = (maxId + 1).toString();
 
-    const task: Task = {
-      id: nextSerialId,
-      groupId: activeGroup.id,
-      ticketNo: newTask.ticketNo,
-      title: newTask.title,
-      description: newTask.description,
-      notes: newTask.notes,
-      ticketUrl: newTask.ticketUrl,
-      tags: newTask.tags,
-      status: 'PENDING',
-      priority: newTask.priority,
-      dueDate: newTask.dueDate, 
-      assignee: assignedMember.name,
-      department: '', 
-      color: newTask.color,
-      reminders: [],
-      createdBy: currentUser.name,
-      createdAt: nowStr,
-      updatedAt: nowStr,
-      subTasks: [],
-    };
+    setIsCreatingTask(true);
+    setCreateError(null);
 
-    setTasks(prev => [task, ...prev]);
-    setIsCreateModalOpen(false);
-    setNewTask(initialFormState);
-    setTagInput('');
+    try {
+      await onCreateTask({
+        title: newTask.title.trim(),
+        description: newTask.description,
+        priority: newTask.priority,
+        dueDate: newTask.dueDate,
+        assignee: assignedMember.name
+      });
+
+      setIsCreateModalOpen(false);
+      setNewTask(initialFormState);
+      setTagInput('');
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : '任務建立失敗');
+    } finally {
+      setIsCreatingTask(false);
+    }
   };
 
   return (
@@ -368,7 +363,16 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                   </div>
                 </div>
                 <div className="pt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pb-2">
-                  <button type="submit" className="w-full h-14 bg-primary text-white rounded-[24px] font-black text-sm uppercase shadow-xl shadow-primary/20 active:scale-95 transition-all">確認建立任務</button>
+                  {createError && (
+                    <p className="text-xs font-bold text-red-500 mb-3">{createError}</p>
+                  )}
+                  <button 
+                    type="submit" 
+                    disabled={isCreatingTask}
+                    className="w-full h-14 bg-primary text-white rounded-[24px] font-black text-sm uppercase shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-60 disabled:active:scale-100"
+                  >
+                    {isCreatingTask ? '建立中...' : '確認建立任務'}
+                  </button>
                 </div>
               </form>
             </div>
