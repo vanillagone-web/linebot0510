@@ -192,6 +192,54 @@ For production, consider moving secrets to Secret Manager later. This stage keep
 
 Important limitation: `npm start` currently runs only `server.js`. It does not serve the Vite frontend build output. Serving the frontend from Cloud Run would require a separate future step, such as building the frontend and serving `dist` from Express.
 
+## Stage 5 Stabilization Notes
+
+Cloud Run is configured with `max instances = 1` during the testing stage.
+
+Purpose:
+
+- Avoid unexpected test traffic from scaling out and causing cost spikes.
+
+Firestore persistence:
+
+- Firestore uses `databaseId: line-todo-bot`.
+- Task data is stored in Firestore and no longer depends on Cloud Run memory.
+- Deleting a task uses soft delete by writing `deletedAt`; it does not physically delete the document.
+
+Firestore composite index:
+
+- The `tasks` query requires a composite index.
+- The following composite index has been created for the `tasks` collection:
+
+```text
+completed Ascending
+deletedAt Ascending
+sourceKey Ascending
+lineTaskNo Ascending
+```
+
+Troubleshooting:
+
+- If the LINE Bot replies `任務系統暫時發生問題，請稍後再試。`, check Cloud Run logs first:
+
+```bash
+gcloud run services logs read task-manager-bot --region asia-east1 --limit 100
+```
+
+- If the logs show `The query requires an index`, create the corresponding composite index in Firestore Indexes.
+
+Redeploy:
+
+```bash
+gcloud run deploy task-manager-bot --source . --allow-unauthenticated
+```
+
+Adjust Cloud Run max instances:
+
+```bash
+gcloud run services update task-manager-bot --region asia-east1 --max-instances 1
+```
+
 ## Useful Commands
 
 ```bash
