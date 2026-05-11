@@ -6,12 +6,12 @@ import BottomNavBar from '../components/BottomNavBar';
 interface CalendarViewProps {
   onNavigate: (view: ViewState) => void;
   onSelectTask: (taskId: string) => void;
-  onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onCompleteTask: (taskId: string) => Promise<Task>;
   tasks: Task[];
   initialDate?: Date;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, onUpdateTask, tasks, initialDate }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, onCompleteTask, tasks, initialDate }) => {
   const [currentDate, setCurrentDate] = useState(initialDate || new Date());
   const [selectedDate, setSelectedDate] = useState(initialDate || new Date());
   const agendaRef = useRef<HTMLDivElement>(null);
@@ -179,7 +179,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, o
                         查看詳情
                       </button>
                       {item.task.status !== 'COMPLETED' && (
-                        <button onClick={(e) => { e.stopPropagation(); onUpdateTask(item.task.id, { status: 'COMPLETED' }); }} className="flex-1 h-11 bg-white dark:bg-white/10 text-primary rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-sm">
+                        <button onClick={(e) => { e.stopPropagation(); onCompleteTask(item.task.id); }} className="flex-1 h-11 bg-white dark:bg-white/10 text-primary rounded-xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-sm">
                           <span className="material-symbols-outlined text-sm">task_alt</span>
                           快速完成
                         </button>

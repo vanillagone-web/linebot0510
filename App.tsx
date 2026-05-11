@@ -136,6 +136,28 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCompleteTask = async (taskId: string) => {
+    setTaskError(null);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: 'PATCH'
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.ok !== true) {
+        throw new Error(data.error || '任務完成失敗');
+      }
+
+      setTasks(prev => prev.map(task => task.id === taskId ? data.task : task));
+      return data.task as Task;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '任務完成失敗';
+      setTaskError(message);
+      throw err;
+    }
+  };
+
   const handleSwitchGroup = (groupId: string) => {
     setActiveGroupId(groupId);
     setCurrentView('TASK_LIST');
@@ -191,7 +213,7 @@ const App: React.FC = () => {
           <CalendarView 
             onNavigate={setCurrentView} 
             onSelectTask={navigateToExecution} 
-            onUpdateTask={handleUpdateTask}
+            onCompleteTask={handleCompleteTask}
             tasks={groupTasks} 
           />
         );
@@ -203,6 +225,7 @@ const App: React.FC = () => {
             members={members}
             onNavigate={setCurrentView} 
             onUpdateTask={handleUpdateTask}
+            onCompleteTask={handleCompleteTask}
             onDeleteTask={handleDeleteTask}
           />
         );
@@ -243,7 +266,7 @@ const App: React.FC = () => {
       <div className="relative w-full max-w-[430px] h-screen bg-white dark:bg-zinc-950 shadow-2xl overflow-hidden flex flex-col">
         {(isLoadingTasks || taskError) && (
           <div className="absolute top-3 left-3 right-3 z-[120] rounded-2xl bg-zinc-900/90 px-4 py-3 text-xs font-bold text-white shadow-lg">
-            {isLoadingTasks ? '正在讀取任務資料...' : `任務讀取失敗：${taskError}`}
+            {isLoadingTasks ? '正在讀取任務資料...' : taskError}
           </div>
         )}
         {renderView()}

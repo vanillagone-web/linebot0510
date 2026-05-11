@@ -8,12 +8,13 @@ interface TaskExecutionViewProps {
   members: Member[];
   onNavigate: (view: ViewState) => void;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onCompleteTask: (taskId: string) => Promise<Task>;
   onDeleteTask: (taskId: string) => void;
 }
 
 const PRESET_COLORS = ['#17cfcf', '#10B981', '#F59E0B', '#E78278', '#8B5CF6', '#3B82F6', '#EC4899', '#64748B'];
 
-const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, members, onNavigate, onUpdateTask, onDeleteTask }) => {
+const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, members, onNavigate, onUpdateTask, onCompleteTask, onDeleteTask }) => {
   const task = tasks.find(t => t.id === taskId) || tasks[0];
   
   // 計算累積工時秒數 (將 actualHours 轉回秒數)
@@ -80,15 +81,16 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     }
   };
 
-  const handleCompleteTask = () => {
+  const handleCompleteTask = async () => {
     if (task.status === 'COMPLETED') return;
-    setShowCompleteSuccess(true);
-    onUpdateTask(task.id, {
-      status: 'COMPLETED',
-      actualHours: seconds / 3600,
-      history: addHistoryEntry('✅ 標記為完成')
-    });
-    setTimeout(() => onNavigate('TASK_LIST'), 1500);
+
+    try {
+      await onCompleteTask(task.id);
+      setShowCompleteSuccess(true);
+      setTimeout(() => onNavigate('TASK_LIST'), 1500);
+    } catch (err) {
+      console.error('Complete task failed', err);
+    }
   };
 
   const handleReopenTask = () => {
