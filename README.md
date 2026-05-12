@@ -468,6 +468,55 @@ To return to this stable version, use the Git tag:
 git checkout v0.1.0-fullstack
 ```
 
+## Stage 8A Access Code Protection
+
+The frontend task API is protected with a simple access code during the testing stage.
+
+Required environment variable:
+
+```env
+WEB_ACCESS_CODE=dev123
+```
+
+Protected routes:
+
+- `GET /api/tasks`
+- `POST /api/tasks`
+- `PATCH /api/tasks/:id`
+- `PATCH /api/tasks/:id/complete`
+- `DELETE /api/tasks/:id`
+
+Unaffected routes:
+
+- `/webhook` is not affected by `WEB_ACCESS_CODE`.
+- `/healthz` is not affected by `WEB_ACCESS_CODE`.
+- React static files and the SPA fallback are not protected; only the task API is protected.
+
+Local curl tests:
+
+```bash
+curl -i http://localhost:8080/api/tasks
+```
+
+Without the header, the API should return `401`.
+
+```bash
+curl -i http://localhost:8080/api/tasks \
+  -H "X-Web-Access-Code: dev123"
+```
+
+With the correct `X-Web-Access-Code` header, the API should return the task list.
+
+Cloud Run environment variable:
+
+```bash
+gcloud run services update task-manager-bot \
+  --region asia-east1 \
+  --update-env-vars WEB_ACCESS_CODE="你的存取碼"
+```
+
+This is not a production login system. It is a small testing-stage protection layer to avoid casual access to the shared `web_default` task data. A formal version should use Firebase Auth, LINE Login, or LIFF with per-user authorization.
+
 ## Useful Commands
 
 ```bash

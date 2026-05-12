@@ -20,13 +20,18 @@ type CreateTaskPayload = {
   assignee: string;
 };
 
+const WEB_ACCESS_CODE_STORAGE_KEY = 'line_todo_web_access_code';
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
   const [activeGroupId, setActiveGroupId] = useState<string>(MOCK_GROUPS[0].id);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
-  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [webAccessCode, setWebAccessCode] = useState(() => localStorage.getItem(WEB_ACCESS_CODE_STORAGE_KEY) || '');
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  const [accessCodeError, setAccessCodeError] = useState<string | null>(null);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(() => Boolean(localStorage.getItem(WEB_ACCESS_CODE_STORAGE_KEY)));
   const [taskError, setTaskError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[0]);
 
@@ -34,18 +39,40 @@ const App: React.FC = () => {
   const groupMembers = members.filter(m => m.groupIds.includes(activeGroupId) && m.isBotLinked);
   const groupTasks = tasks.filter(t => t.groupId === activeGroupId || t.groupId === 'web_default');
 
+  const handleAccessDenied = (message = '未授權，請輸入正確的 access code。') => {
+    localStorage.removeItem(WEB_ACCESS_CODE_STORAGE_KEY);
+    setWebAccessCode('');
+    setAccessCodeError(message);
+    setTaskError(null);
+  };
+
   useEffect(() => {
+    if (!webAccessCode) {
+      setIsLoadingTasks(false);
+      return;
+    }
+
     let isMounted = true;
 
     const loadTasks = async () => {
       setIsLoadingTasks(true);
       setTaskError(null);
+      setAccessCodeError(null);
 
       try {
-        const response = await fetch('/api/tasks');
+        const response = await fetch('/api/tasks', {
+          headers: {
+            'X-Web-Access-Code': webAccessCode
+          }
+        });
         const data = await response.json();
 
         if (!response.ok || data.ok !== true) {
+          if (response.status === 401) {
+            handleAccessDenied(data.error);
+            return;
+          }
+
           throw new Error(data.error || '任務讀取失敗');
         }
 
@@ -68,7 +95,24 @@ const App: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [webAccessCode]);
+
+  const handleAccessCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const code = accessCodeInput.trim();
+
+    if (!code) {
+      setAccessCodeError('請輸入 access code。');
+      return;
+    }
+
+    localStorage.setItem(WEB_ACCESS_CODE_STORAGE_KEY, code);
+    setWebAccessCode(code);
+    setAccessCodeInput('');
+    setAccessCodeError(null);
+    setTaskError(null);
+  };
 
   const navigateToExecution = (taskId: string) => {
     setSelectedTaskId(taskId);
@@ -84,12 +128,19 @@ const App: React.FC = () => {
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Web-Access-Code': webAccessCode
+        },
         body: JSON.stringify(updates)
       });
       const data = await response.json();
 
       if (!response.ok || data.ok !== true) {
+        if (response.status === 401) {
+          handleAccessDenied(data.error);
+        }
+
         throw new Error(data.error || '任務更新失敗');
       }
 
@@ -107,11 +158,18 @@ const App: React.FC = () => {
 
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'X-Web-Access-Code': webAccessCode
+        }
       });
       const data = await response.json();
 
       if (!response.ok || data.ok !== true) {
+        if (response.status === 401) {
+          handleAccessDenied(data.error);
+        }
+
         throw new Error(data.error || '任務刪除失敗');
       }
 
@@ -130,12 +188,19 @@ const App: React.FC = () => {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Web-Access-Code': webAccessCode
+        },
         body: JSON.stringify(payload)
       });
       const data = await response.json();
 
       if (!response.ok || data.ok !== true) {
+        if (response.status === 401) {
+          handleAccessDenied(data.error);
+        }
+
         throw new Error(data.error || '任務建立失敗');
       }
 
@@ -153,11 +218,18 @@ const App: React.FC = () => {
 
     try {
       const response = await fetch(`/api/tasks/${taskId}/complete`, {
-        method: 'PATCH'
+        method: 'PATCH',
+        headers: {
+          'X-Web-Access-Code': webAccessCode
+        }
       });
       const data = await response.json();
 
       if (!response.ok || data.ok !== true) {
+        if (response.status === 401) {
+          handleAccessDenied(data.error);
+        }
+
         throw new Error(data.error || '任務完成失敗');
       }
 
@@ -272,6 +344,33 @@ const App: React.FC = () => {
         return <LoginView onLoginSuccess={() => setCurrentView('TASK_LIST')} />;
     }
   };
+
+  if (!webAccessCode) {
+    return (
+      <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center px-6 transition-colors duration-500">
+        <form onSubmit={handleAccessCodeSubmit} className="w-full max-w-[360px] rounded-[32px] bg-white dark:bg-zinc-900 p-8 shadow-2xl border border-zinc-100 dark:border-zinc-800 space-y-5">
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Access Code</p>
+            <h1 className="text-2xl font-black text-zinc-900 dark:text-white">請輸入存取碼</h1>
+            <p className="text-xs font-bold leading-relaxed text-zinc-400">此任務管理介面目前僅開放測試使用。</p>
+          </div>
+          <input
+            type="password"
+            value={accessCodeInput}
+            onChange={(event) => setAccessCodeInput(event.target.value)}
+            placeholder="Access code"
+            className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold text-zinc-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+          />
+          {accessCodeError && (
+            <p className="text-xs font-bold text-red-500">{accessCodeError}</p>
+          )}
+          <button type="submit" className="h-12 w-full rounded-2xl bg-primary text-sm font-black text-white shadow-lg shadow-primary/20 active:scale-95 transition-all">
+            進入任務管理
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex justify-center transition-colors duration-500">

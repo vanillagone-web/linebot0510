@@ -74,6 +74,7 @@ app.post("/webhook", middleware(config), async (req, res) => {
 })
 
 app.use("/api", express.json())
+app.use("/api/tasks", requireWebAccessCode)
 
 app.get("/api/tasks", async (req, res) => {
   try {
@@ -264,6 +265,29 @@ app.use((req, res, next) => {
 
   res.sendFile(path.join(distPath, "index.html"))
 })
+
+function requireWebAccessCode(req, res, next) {
+  const expectedCode = process.env.WEB_ACCESS_CODE
+
+  if (!expectedCode) {
+    console.error("WEB_ACCESS_CODE is not configured")
+    return res.status(500).json({
+      ok: false,
+      error: "WEB_ACCESS_CODE is not configured"
+    })
+  }
+
+  const providedCode = req.get("X-Web-Access-Code")
+
+  if (providedCode !== expectedCode) {
+    return res.status(401).json({
+      ok: false,
+      error: "未授權，請輸入正確的 access code。"
+    })
+  }
+
+  next()
+}
 
 function formatTimestamp(value) {
   if (!value) return ""
