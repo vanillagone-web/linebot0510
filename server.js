@@ -22,6 +22,26 @@ const WEB_SCOPE = {
   roomId: null,
   createdBy: "web_default"
 }
+const ALLOWED_TASK_UPDATE_FIELDS = new Set([
+  "title",
+  "description",
+  "status",
+  "priority",
+  "dueDate",
+  "assignee",
+  "department",
+  "reminders",
+  "color",
+  "tags",
+  "notes",
+  "subTasks",
+  "actualHours",
+  "history"
+])
+const VALID_TASK_STATUSES = new Set(["PENDING", "IN_PROGRESS", "COMPLETED", "OVERDUE"])
+const VALID_TASK_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH"])
+
+class ValidationError extends Error {}
 
 // ===== 讀取環境變數 =====
 const config = {
@@ -100,6 +120,61 @@ app.post("/api/tasks", async (req, res) => {
     })
   } catch (err) {
     console.error("API create task failed", err)
+    res.status(500).json({
+      ok: false,
+      error: "任務系統暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
+app.patch("/api/tasks/:id", async (req, res) => {
+  try {
+    const taskRef = db.collection("tasks").doc(req.params.id)
+    const taskSnapshot = await taskRef.get()
+
+    if (!taskSnapshot.exists) {
+      return res.status(404).json({
+        ok: false,
+        error: "找不到任務"
+      })
+    }
+
+    const currentTask = taskSnapshot.data()
+
+    if (currentTask.sourceKey !== WEB_SCOPE.sourceKey || currentTask.deletedAt != null) {
+      return res.status(404).json({
+        ok: false,
+        error: "找不到任務"
+      })
+    }
+
+    const updatePayload = buildTaskUpdatePayload(req.body, currentTask)
+
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "沒有可更新的欄位"
+      })
+    }
+
+    updatePayload.updatedAt = FieldValue.serverTimestamp()
+
+    await taskRef.update(updatePayload)
+
+    const updatedSnapshot = await taskRef.get()
+    res.status(200).json({
+      ok: true,
+      task: firestoreTaskToReactTask(updatedSnapshot)
+    })
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return res.status(400).json({
+        ok: false,
+        error: err.message
+      })
+    }
+
+    console.error("API update task failed", err)
     res.status(500).json({
       ok: false,
       error: "任務系統暫時發生問題，請稍後再試。"
@@ -261,6 +336,87 @@ function createWebTaskDocument(payload, lineTaskNo) {
     notes: "",
     subTasks: []
   }
+}
+
+function assertStringField(value, field) {
+  if (typeof value !== "string") {
+    throw new ValidationError(`invalid field: ${field}`)
+  }
+  return value
+}
+
+function assertArrayField(value, field) {
+  if (!Array.isArray(value)) {
+    throw new ValidationError(`invalid field: ${field}`)
+  }
+  return value
+}
+
+function buildTaskUpdatePayload(body, currentTask) {
+  const updatePayload = {}
+
+  for (const [field, value] of Object.entries(body || {})) {
+    if (!ALLOWED_TASK_UPDATE_FIELDS.has(field)) {
+      continue
+    }
+
+    if (field === "title") {
+      const title = assertStringField(value, field).trim()
+      if (!title) {
+        throw new ValidationError("invalid field: title")
+      }
+      updatePayload.title = title
+      updatePayload.content = title
+      continue
+    }
+
+    if (["description", "dueDate", "assignee", "department", "color", "notes"].includes(field)) {
+      updatePayload[field] = assertStringField(value, field)
+      continue
+    }
+
+    if (field === "status") {
+      const status = assertStringField(value, field)
+      if (!VALID_TASK_STATUSES.has(status)) {
+        throw new ValidationError("invalid field: status")
+      }
+      updatePayload.status = status
+      continue
+    }
+
+    if (field === "priority") {
+      const priority = assertStringField(value, field)
+      if (!VALID_TASK_PRIORITIES.has(priority)) {
+        throw new ValidationError("invalid field: priority")
+      }
+      updatePayload.priority = priority
+      continue
+    }
+
+    if (["reminders", "tags", "subTasks", "history"].includes(field)) {
+      updatePayload[field] = assertArrayField(value, field)
+      continue
+    }
+
+    if (field === "actualHours") {
+      if (typeof value !== "number" || Number.isNaN(value)) {
+        throw new ValidationError("invalid field: actualHours")
+      }
+      updatePayload.actualHours = value
+    }
+  }
+
+  if (updatePayload.status === "COMPLETED") {
+    updatePayload.completed = true
+    if (!currentTask.completedAt) {
+      updatePayload.completedAt = FieldValue.serverTimestamp()
+    }
+  } else if (["PENDING", "IN_PROGRESS", "OVERDUE"].includes(updatePayload.status)) {
+    updatePayload.completed = false
+    updatePayload.completedAt = null
+  }
+
+  return updatePayload
 }
 
 async function getNextTaskNoForScope(transaction, scope) {

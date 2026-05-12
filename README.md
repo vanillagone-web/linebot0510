@@ -171,6 +171,7 @@ Endpoints:
 ```text
 GET /api/tasks
 POST /api/tasks
+PATCH /api/tasks/:id
 PATCH /api/tasks/:id/complete
 DELETE /api/tasks/:id
 ```
@@ -198,6 +199,50 @@ DELETE /api/tasks/:id
 
 `PATCH /api/tasks/:id/complete` marks a task as completed. The `id` is the Firestore document id.
 
+`PATCH /api/tasks/:id` updates allowed fields on a non-deleted `web_default` task. The `id` is the Firestore document id.
+
+Allowed update fields:
+
+```text
+title
+description
+status
+priority
+dueDate
+assignee
+department
+reminders
+color
+tags
+notes
+subTasks
+actualHours
+history
+```
+
+Protected fields that the frontend must not update:
+
+```text
+id
+lineTaskNo
+sourceKey
+sourceType
+sourceId
+userId
+groupId
+roomId
+createdBy
+createdAt
+deletedAt
+```
+
+Status synchronization rules:
+
+- If `status` is updated to `COMPLETED`, the API sets `completed` to `true`.
+- If `completedAt` is empty when status becomes `COMPLETED`, the API sets `completedAt` with a server timestamp.
+- If `completedAt` already exists, the API does not overwrite it.
+- If `status` is updated to `PENDING`, `IN_PROGRESS`, or `OVERDUE`, the API sets `completed` to `false` and `completedAt` to `null`.
+
 `DELETE /api/tasks/:id` uses soft delete by setting `deletedAt`.
 
 API test commands:
@@ -215,6 +260,31 @@ curl -X POST http://localhost:8080/api/tasks \
     "priority": "MEDIUM",
     "dueDate": "2026-05-11",
     "assignee": "Web User"
+  }'
+```
+
+```bash
+curl -X PATCH http://localhost:8080/api/tasks/FIRESTORE_DOC_ID \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "更新後的任務標題",
+    "priority": "HIGH"
+  }'
+```
+
+```bash
+curl -X PATCH http://localhost:8080/api/tasks/FIRESTORE_DOC_ID \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "COMPLETED"
+  }'
+```
+
+```bash
+curl -X PATCH http://localhost:8080/api/tasks/FIRESTORE_DOC_ID \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "PENDING"
   }'
 ```
 
