@@ -238,18 +238,21 @@ Firestore index note:
 
 Frontend serving note:
 
-- This stage does not serve React `dist`.
-- No SPA fallback is configured yet.
-- Cloud Run still runs as a server-only API/webhook service.
+- Cloud Run serves React `dist` from the same Express service.
+- SPA fallback is enabled after `/webhook`, `/api`, and `/healthz`.
+- Cloud Run now runs as a full-stack single service.
 
 ## Cloud Run Notes
 
-This stage deploys only the LINE webhook server to Cloud Run.
+Cloud Run runs this project as a full-stack single service.
 
-It does not serve the React frontend. After deployment, opening the Cloud Run service URL in a browser will only show:
+Routes:
 
 ```text
-Service running
+/          React app
+/api/tasks Task API
+/webhook   LINE webhook
+/healthz   Health check
 ```
 
 The LINE webhook URL should be:
@@ -259,6 +262,14 @@ https://YOUR_CLOUD_RUN_URL/webhook
 ```
 
 This project does not need a Dockerfile for the current server-only deployment. Use Google Cloud buildpacks from the source code.
+
+Cloud Run buildpacks run `gcp-build`, which runs:
+
+```bash
+npm run build
+```
+
+This produces the React `dist` directory before `npm start` runs `server.js`.
 
 Basic requirements:
 
@@ -281,7 +292,12 @@ gcloud run deploy task-manager-bot \
 
 For production, consider moving secrets to Secret Manager later. This stage keeps deployment simple and does not implement Secret Manager integration.
 
-Important limitation: `npm start` currently runs only `server.js`. It does not serve the Vite frontend build output. Serving the frontend from Cloud Run would require a separate future step, such as building the frontend and serving `dist` from Express.
+Troubleshooting:
+
+- If the frontend page is blank, first check that `dist` was generated during the Cloud Run build.
+- If the LINE Bot stops working, verify that `/webhook` is still registered before `app.use("/api", express.json())`.
+- If `/api/tasks` returns React HTML, the SPA fallback is running before the API routes and the route order must be fixed.
+- Health checks should use `/healthz`; `/` is reserved for the React app.
 
 ## Stage 5 Stabilization Notes
 

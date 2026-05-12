@@ -1,10 +1,15 @@
 import "dotenv/config"
 import express from "express"
+import path from "path"
+import { fileURLToPath } from "url"
 import { Client, middleware } from "@line/bot-sdk"
 import { initializeApp, getApps } from "firebase-admin/app"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 
 const app = express()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const distPath = path.join(__dirname, "dist")
 const FIRESTORE_DATABASE_ID = "line-todo-bot"
 const firebaseApp = getApps().length === 0 ? initializeApp() : getApps()[0]
 const db = getFirestore(firebaseApp, FIRESTORE_DATABASE_ID)
@@ -163,8 +168,26 @@ app.delete("/api/tasks/:id", async (req, res) => {
 })
 
 // ===== 健康檢查 =====
-app.get("/", (req, res) => {
+app.get("/healthz", (req, res) => {
   res.status(200).send("Service running")
+})
+
+app.use(express.static(distPath))
+
+app.use((req, res, next) => {
+  if (req.method !== "GET") {
+    return next()
+  }
+
+  if (
+    req.path.startsWith("/api") ||
+    req.path === "/webhook" ||
+    req.path === "/healthz"
+  ) {
+    return next()
+  }
+
+  res.sendFile(path.join(distPath, "index.html"))
 })
 
 function formatTimestamp(value) {
