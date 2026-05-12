@@ -75,36 +75,31 @@ const App: React.FC = () => {
     setCurrentView('EXECUTION');
   };
 
-  const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks(prev => {
-      const now = new Date().toLocaleString();
-      const targetTaskBefore = prev.find(t => t.id === taskId);
-      if (!targetTaskBefore) return prev;
+  const handleUpdateTask = async (
+    taskId: string,
+    updates: Partial<Task>
+  ): Promise<Task> => {
+    setTaskError(null);
 
-      let updatedTasks = prev.map(t => 
-        t.id === taskId ? { ...t, ...updates, updatedAt: now } : t
-      );
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const data = await response.json();
 
-      if (updates.status === 'IN_PROGRESS') {
-        const assignee = targetTaskBefore.assignee;
-        updatedTasks = updatedTasks.map(t => {
-          if (t.id !== taskId && t.assignee === assignee && t.status === 'IN_PROGRESS') {
-            return { 
-              ...t, 
-              status: 'PENDING', 
-              updatedAt: now,
-              history: [
-                ...(t.history || []), 
-                { timestamp: now, user: '系統自動', action: '⚠️ 因開啟新任務，此任務已自動暫停' }
-              ]
-            };
-          }
-          return t;
-        });
+      if (!response.ok || data.ok !== true) {
+        throw new Error(data.error || '任務更新失敗');
       }
 
-      return updatedTasks;
-    });
+      setTasks(prev => prev.map(task => task.id === taskId ? data.task : task));
+      return data.task as Task;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '任務更新失敗';
+      setTaskError(message);
+      throw err;
+    }
   };
 
   const handleDeleteTask = async (taskId: string) => {

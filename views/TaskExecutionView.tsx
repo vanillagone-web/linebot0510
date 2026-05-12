@@ -7,7 +7,7 @@ interface TaskExecutionViewProps {
   tasks: Task[];
   members: Member[];
   onNavigate: (view: ViewState) => void;
-  onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<Task>;
   onCompleteTask: (taskId: string) => Promise<Task>;
   onDeleteTask: (taskId: string) => Promise<void>;
 }
@@ -21,7 +21,6 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const initialSeconds = Math.round((task.actualHours || 0) * 3600);
   const [seconds, setSeconds] = useState(initialSeconds); 
   const [showCompleteSuccess, setShowCompleteSuccess] = useState(false);
-  const [showAutoPauseHint, setShowAutoPauseHint] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [activeSubTaskPicker, setActiveSubTaskPicker] = useState<string | null>(null);
@@ -56,29 +55,31 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     return [...(task.history || []), entry];
   };
 
-  const toggleTimer = () => {
+  const updateTask = async (updates: Partial<Task>, actionName: string) => {
+    try {
+      return await onUpdateTask(task.id, updates);
+    } catch (err) {
+      console.error(`${actionName} failed`, err);
+      return null;
+    }
+  };
+
+  const toggleTimer = async () => {
     if (task.status === 'COMPLETED') return;
 
     if (!isTaskRunning) {
       // 啟動計時
-      // 檢查是否會有其他任務被自動暫停
-      const otherActiveTasks = tasks.filter(t => t.id !== task.id && t.assignee === task.assignee && t.status === 'IN_PROGRESS');
-      if (otherActiveTasks.length > 0) {
-        setShowAutoPauseHint(true);
-        setTimeout(() => setShowAutoPauseHint(false), 3000);
-      }
-
-      onUpdateTask(task.id, {
+      await updateTask({
         status: 'IN_PROGRESS',
         history: addHistoryEntry('🚀 啟動計時')
-      });
+      }, 'Start timer');
     } else {
       // 暫停計時
-      onUpdateTask(task.id, {
+      await updateTask({
         status: 'PENDING',
         actualHours: seconds / 3600,
         history: addHistoryEntry('⏸ 暫停計時')
-      });
+      }, 'Pause timer');
     }
   };
 
@@ -108,45 +109,47 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     }
   };
 
-  const handleReopenTask = () => {
-    onUpdateTask(task.id, {
+  const handleReopenTask = async () => {
+    await updateTask({
       status: 'PENDING',
       history: addHistoryEntry('🔓 重新啟動任務')
-    });
+    }, 'Reopen task');
   };
 
-  const handleUpdateColor = (color: string) => {
-    onUpdateTask(task.id, { 
+  const handleUpdateColor = async (color: string) => {
+    await updateTask({ 
       color,
       history: addHistoryEntry(`🎨 變更任務顏色為 ${color}`)
-    });
+    }, 'Update task color');
   };
 
-  const handleToggleSubTask = (subTaskId: string) => {
+  const handleToggleSubTask = async (subTaskId: string) => {
     const subTask = task.subTasks?.find(st => st.id === subTaskId);
     const updatedSubTasks = (task.subTasks || []).map(st => 
       st.id === subTaskId ? { ...st, isCompleted: !st.isCompleted } : st
     );
-    onUpdateTask(task.id, { 
+    await updateTask({ 
       subTasks: updatedSubTasks,
       history: addHistoryEntry(`${subTask?.isCompleted ? '↩️ 重設' : '🔘 完成'} 子任務: ${subTask?.title}`)
-    });
+    }, 'Toggle subtask');
   };
 
-  const handleUpdateSubTaskAssignee = (subTaskId: string, assigneeId: string) => {
+  const handleUpdateSubTaskAssignee = async (subTaskId: string, assigneeId: string) => {
     const subTask = task.subTasks?.find(st => st.id === subTaskId);
     const member = members.find(m => m.id === assigneeId);
     const updatedSubTasks = (task.subTasks || []).map(st => 
       st.id === subTaskId ? { ...st, assigneeId } : st
     );
-    onUpdateTask(task.id, { 
+    const updatedTask = await updateTask({ 
       subTasks: updatedSubTasks,
       history: addHistoryEntry(`👤 指派子任務 [${subTask?.title}] 給 ${member?.name}`)
-    });
-    setActiveSubTaskPicker(null);
+    }, 'Update subtask assignee');
+    if (updatedTask) {
+      setActiveSubTaskPicker(null);
+    }
   };
 
-  const handleAddSubTask = () => {
+  const handleAddSubTask = async () => {
     if (!newSubTaskTitle.trim()) return;
     const primaryAssignee = members.find(m => m.name === task.assignee);
     const defaultAssigneeId = primaryAssignee?.id || members[0]?.id;
@@ -156,20 +159,22 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
       isCompleted: false,
       assigneeId: defaultAssigneeId
     };
-    onUpdateTask(task.id, { 
+    const updatedTask = await updateTask({ 
       subTasks: [...(task.subTasks || []), newSub],
       history: addHistoryEntry(`➕ 新增子任務: ${newSub.title}`)
-    });
-    setNewSubTaskTitle('');
+    }, 'Add subtask');
+    if (updatedTask) {
+      setNewSubTaskTitle('');
+    }
   };
 
-  const handleDeleteSubTask = (subTaskId: string) => {
+  const handleDeleteSubTask = async (subTaskId: string) => {
     const subTask = task.subTasks?.find(st => st.id === subTaskId);
     const updatedSubTasks = (task.subTasks || []).filter(st => st.id !== subTaskId);
-    onUpdateTask(task.id, { 
+    await updateTask({ 
       subTasks: updatedSubTasks,
       history: addHistoryEntry(`🗑️ 移除子任務: ${subTask?.title}`)
-    });
+    }, 'Delete subtask');
   };
 
   const onDragStart = (index: number) => setDraggedItemIndex(index);
@@ -181,11 +186,11 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     items.splice(draggedItemIndex, 1);
     items.splice(index, 0, draggedItem);
     setDraggedItemIndex(index);
-    onUpdateTask(task.id, { subTasks: items });
+    updateTask({ subTasks: items }, 'Reorder subtasks').catch(() => undefined);
   };
-  const onDragEnd = () => {
+  const onDragEnd = async () => {
     setDraggedItemIndex(null);
-    onUpdateTask(task.id, { history: addHistoryEntry('↕️ 重新排列了子任務順序') });
+    await updateTask({ history: addHistoryEntry('↕️ 重新排列了子任務順序') }, 'Finish reordering subtasks');
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -207,16 +212,6 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
 
   return (
     <div className="flex flex-col h-full bg-[#f8fafb] dark:bg-background-dark overflow-hidden relative font-jakarta">
-      {/* 自動暫停提示 Toast */}
-      {showAutoPauseHint && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[110] animate-in fade-in slide-in-from-top-4 w-[85%]">
-           <div className="bg-zinc-900 text-white px-6 py-4 rounded-3xl text-[11px] font-black shadow-2xl flex items-center gap-3 border border-primary/30">
-             <span className="material-symbols-outlined text-amber-500 animate-bounce">warning</span>
-             偵測到其他進行中任務，已為您自動暫停以確保工時準確。
-           </div>
-        </div>
-      )}
-
       {showCompleteSuccess && (
         <div className="absolute inset-0 z-[100] bg-[#06C755] flex flex-col items-center justify-center animate-in fade-in duration-500">
            <div className="size-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-2xl animate-in zoom-in duration-500 delay-100">
