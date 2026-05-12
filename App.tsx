@@ -107,9 +107,26 @@ const App: React.FC = () => {
     });
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    setCurrentView('TASK_LIST');
+  const handleDeleteTask = async (taskId: string) => {
+    setTaskError(null);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.ok !== true) {
+        throw new Error(data.error || '任務刪除失敗');
+      }
+
+      setTasks(prev => prev.filter(task => task.id !== taskId));
+      setCurrentView('TASK_LIST');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '任務刪除失敗';
+      setTaskError(message);
+      throw err;
+    }
   };
 
   const handleCreateTask = async (payload: CreateTaskPayload) => {

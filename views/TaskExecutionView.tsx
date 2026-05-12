@@ -9,7 +9,7 @@ interface TaskExecutionViewProps {
   onNavigate: (view: ViewState) => void;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
   onCompleteTask: (taskId: string) => Promise<Task>;
-  onDeleteTask: (taskId: string) => void;
+  onDeleteTask: (taskId: string) => Promise<void>;
 }
 
 const PRESET_COLORS = ['#17cfcf', '#10B981', '#F59E0B', '#E78278', '#8B5CF6', '#3B82F6', '#EC4899', '#64748B'];
@@ -26,6 +26,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [activeSubTaskPicker, setActiveSubTaskPicker] = useState<string | null>(null);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   const isTaskRunning = task.status === 'IN_PROGRESS';
 
@@ -90,6 +91,20 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
       setTimeout(() => onNavigate('TASK_LIST'), 1500);
     } catch (err) {
       console.error('Complete task failed', err);
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (isDeletingTask) return;
+
+    setIsDeletingTask(true);
+
+    try {
+      await onDeleteTask(task.id);
+    } catch (err) {
+      console.error('Delete task failed', err);
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
@@ -425,7 +440,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
         ) : (
           <button onClick={handleCompleteTask} className="flex-1 h-16 bg-[#06C755] text-white rounded-[24px] font-black text-sm uppercase shadow-xl shadow-[#06C755]/20 flex items-center justify-center gap-2 active:scale-95 transition-all"><span className="material-symbols-outlined">task_alt</span>標記完成並結案</button>
         )}
-        <button onClick={() => onDeleteTask(task.id)} className="size-16 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-[24px] flex items-center justify-center active:scale-90 transition-all"><span className="material-symbols-outlined">delete</span></button>
+        <button onClick={handleDeleteTask} disabled={isDeletingTask} className="size-16 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-[24px] flex items-center justify-center active:scale-90 transition-all disabled:opacity-60 disabled:active:scale-100"><span className="material-symbols-outlined">delete</span></button>
       </div>
     </div>
   );
