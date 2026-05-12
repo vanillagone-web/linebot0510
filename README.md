@@ -347,6 +347,57 @@ Adjust Cloud Run max instances:
 gcloud run services update task-manager-bot --region asia-east1 --max-instances 1
 ```
 
+## Stage 7 Release Notes
+
+Current release tag:
+
+```text
+v0.1.0-fullstack
+```
+
+This version has reached a full-stack single-service setup:
+
+- The Cloud Run production URL displays the React frontend.
+- `/api/tasks` provides the task API.
+- `/webhook` provides the LINE Bot webhook.
+- `/healthz` provides the health check.
+- Firestore uses `databaseId: line-todo-bot`.
+
+Data scopes:
+
+- The frontend currently uses `web_default`.
+- The LINE Bot uses `user_xxx`, `group_xxx`, and `room_xxx`.
+- Frontend tasks and LINE Bot tasks are currently separated by scope.
+
+Completed in this version:
+
+- Frontend task loading.
+- Frontend task creation.
+- Frontend task completion.
+- Frontend task deletion.
+- LINE Bot text-based task commands.
+
+Not completed yet:
+
+- Full frontend edit synchronization.
+- User login and permissions.
+- LINE Login / LIFF.
+- Reminder scheduling.
+- AI task parsing.
+
+If the service has issues, check these first:
+
+- Cloud Run logs.
+- Firestore indexes.
+- LINE webhook settings.
+- Cloud Run environment variables.
+
+To return to this stable version, use the Git tag:
+
+```bash
+git checkout v0.1.0-fullstack
+```
+
 ## Useful Commands
 
 ```bash
