@@ -594,6 +594,81 @@ gcloud run services update task-manager-bot \
 
 `/api/auth/line` is not protected by `WEB_ACCESS_CODE` because it is the LINE identity verification entry point. Do not log full `idToken` values in application logs.
 
+## Stage 9B-2 LIFF Frontend Initialization
+
+The React frontend loads the LIFF SDK from `index.html`:
+
+```html
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+```
+
+The frontend reads the LIFF ID from Vite env:
+
+```env
+VITE_LIFF_ID=your-liff-id
+```
+
+The backend verifies LINE `idToken` with:
+
+```env
+LINE_LOGIN_CHANNEL_ID=your-line-login-channel-id
+```
+
+This stage initializes LIFF, calls `liff.getIDToken()`, sends the token to `POST /api/auth/line`, and displays the LINE user profile and `user_${lineUserId}` scope in the UI.
+
+Important scope note:
+
+- This stage does not switch `/api/tasks` to `user_${lineUserId}`.
+- `/api/tasks` still uses `WEB_ACCESS_CODE` and `web_default`.
+- `WEB_ACCESS_CODE` remains enabled.
+- Do not store LINE `idToken` in `localStorage`.
+- Do not store LINE auth results long-term in `localStorage`.
+
+Local testing:
+
+```env
+VITE_LIFF_ID=your-liff-id
+LINE_LOGIN_CHANNEL_ID=your-line-login-channel-id
+WEB_ACCESS_CODE=dev123
+```
+
+```bash
+npm start
+npm run dev
+```
+
+Local LIFF behavior may be limited because the LIFF endpoint is configured to the Cloud Run production URL. Local testing is mainly useful for checking that the app does not crash when `VITE_LIFF_ID` is missing or when the LIFF SDK cannot initialize.
+
+LIFF URL testing:
+
+```text
+https://liff.line.me/YOUR_LIFF_ID
+```
+
+Open the LIFF URL in the LINE app. The expected flow is:
+
+1. LIFF initializes.
+2. LINE login runs if needed.
+3. The frontend gets an `idToken`.
+4. The frontend calls `POST /api/auth/line`.
+5. The UI displays the LINE display name and `user_${lineUserId}` scope.
+6. Access Code is still required for `/api/tasks`.
+
+Cloud Run environment variables:
+
+```bash
+gcloud run services update task-manager-bot \
+  --region asia-east1 \
+  --update-env-vars LINE_LOGIN_CHANNEL_ID="你的 LINE Login Channel ID",VITE_LIFF_ID="你的 LIFF ID"
+```
+
+Common errors:
+
+- `VITE_LIFF_ID is not configured`: the frontend build did not receive `VITE_LIFF_ID`.
+- `LIFF SDK 尚未載入`: the SDK script failed to load.
+- Missing `openid` scope: `liff.getIDToken()` may return no token.
+- Wrong `LINE_LOGIN_CHANNEL_ID`: `/api/auth/line` verification fails.
+
 ## Useful Commands
 
 ```bash

@@ -20,6 +20,30 @@ type CreateTaskPayload = {
   assignee: string;
 };
 
+type LineAuthUser = {
+  lineUserId: string;
+  displayName: string;
+  pictureUrl: string;
+};
+
+type LineAuthScope = {
+  sourceType: string;
+  sourceId: string;
+  sourceKey: string;
+  createdBy: string;
+};
+
+declare global {
+  interface Window {
+    liff?: {
+      init: (config: { liffId: string }) => Promise<void>;
+      isLoggedIn: () => boolean;
+      login: () => void;
+      getIDToken: () => string | null;
+    };
+  }
+}
+
 const WEB_ACCESS_CODE_STORAGE_KEY = 'line_todo_web_access_code';
 
 const App: React.FC = () => {
@@ -33,6 +57,10 @@ const App: React.FC = () => {
   const [accessCodeError, setAccessCodeError] = useState<string | null>(null);
   const [isLoadingTasks, setIsLoadingTasks] = useState(() => Boolean(localStorage.getItem(WEB_ACCESS_CODE_STORAGE_KEY)));
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [isInitializingLiff, setIsInitializingLiff] = useState(false);
+  const [lineAuthUser, setLineAuthUser] = useState<LineAuthUser | null>(null);
+  const [lineAuthScope, setLineAuthScope] = useState<LineAuthScope | null>(null);
+  const [lineAuthError, setLineAuthError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[0]);
 
   const activeGroup = MOCK_GROUPS.find(g => g.id === activeGroupId) || MOCK_GROUPS[0];
@@ -45,6 +73,75 @@ const App: React.FC = () => {
     setAccessCodeError(message);
     setTaskError(null);
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeLiff = async () => {
+      const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+      const liffId = viteEnv?.VITE_LIFF_ID;
+
+      if (!liffId) {
+        setLineAuthError('VITE_LIFF_ID is not configured');
+        return;
+      }
+
+      if (!window.liff) {
+        setLineAuthError('LIFF SDK 尚未載入');
+        return;
+      }
+
+      setIsInitializingLiff(true);
+      setLineAuthError(null);
+
+      try {
+        await window.liff.init({ liffId });
+
+        if (!window.liff.isLoggedIn()) {
+          window.liff.login();
+          return;
+        }
+
+        const idToken = window.liff.getIDToken();
+
+        if (!idToken) {
+          throw new Error('無法取得 LINE idToken');
+        }
+
+        const response = await fetch('/api/auth/line', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ idToken })
+        });
+        const data = await response.json();
+
+        if (!response.ok || data.ok !== true) {
+          throw new Error(data.error || 'LINE 登入驗證失敗');
+        }
+
+        if (isMounted) {
+          setLineAuthUser(data.user);
+          setLineAuthScope(data.scope);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setLineAuthError(err instanceof Error ? err.message : 'LINE 登入驗證失敗');
+        }
+      } finally {
+        if (isMounted) {
+          setIsInitializingLiff(false);
+        }
+      }
+    };
+
+    initializeLiff();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!webAccessCode) {
@@ -345,6 +442,24 @@ const App: React.FC = () => {
     }
   };
 
+  const lineAuthStatus = (
+    <div className="rounded-2xl border border-zinc-100 bg-zinc-50/80 px-3 py-2 text-[10px] font-bold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-400">
+      {lineAuthUser ? (
+        <div className="flex items-center gap-2">
+          {lineAuthUser.pictureUrl && (
+            <img src={lineAuthUser.pictureUrl} alt="" className="size-7 rounded-full object-cover" />
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-zinc-700 dark:text-zinc-200">LINE：{lineAuthUser.displayName || lineAuthUser.lineUserId}</p>
+            <p className="truncate text-zinc-400">{lineAuthScope?.sourceKey || `user_${lineAuthUser.lineUserId}`}</p>
+          </div>
+        </div>
+      ) : (
+        <p>{isInitializingLiff ? '正在初始化 LINE 身份...' : lineAuthError || 'LINE 身份尚未驗證'}</p>
+      )}
+    </div>
+  );
+
   if (!webAccessCode) {
     return (
       <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center px-6 transition-colors duration-500">
@@ -354,6 +469,7 @@ const App: React.FC = () => {
             <h1 className="text-2xl font-black text-zinc-900 dark:text-white">請輸入存取碼</h1>
             <p className="text-xs font-bold leading-relaxed text-zinc-400">此任務管理介面目前僅開放測試使用。</p>
           </div>
+          {lineAuthStatus}
           <input
             type="password"
             value={accessCodeInput}
@@ -380,6 +496,9 @@ const App: React.FC = () => {
             {isLoadingTasks ? '正在讀取任務資料...' : taskError}
           </div>
         )}
+        <div className={`absolute left-3 right-3 z-[110] ${isLoadingTasks || taskError ? 'top-16' : 'top-3'}`}>
+          {lineAuthStatus}
+        </div>
         {renderView()}
       </div>
     </div>
