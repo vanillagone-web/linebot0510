@@ -42,6 +42,7 @@ const VALID_TASK_STATUSES = new Set(["PENDING", "IN_PROGRESS", "COMPLETED", "OVE
 const VALID_TASK_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH"])
 
 class ValidationError extends Error {}
+class ConfigurationError extends Error {}
 
 // ===== 讀取環境變數 =====
 const config = {
@@ -74,6 +75,61 @@ app.post("/webhook", middleware(config), async (req, res) => {
 })
 
 app.use("/api", express.json())
+
+app.post("/api/auth/line", async (req, res) => {
+  try {
+    const idToken = typeof req.body?.idToken === "string" ? req.body.idToken.trim() : ""
+
+    if (!idToken) {
+      return res.status(400).json({
+        ok: false,
+        error: "idToken is required"
+      })
+    }
+
+    const verifiedToken = await verifyLineIdToken(idToken)
+    const lineUserId = verifiedToken.sub
+
+    res.status(200).json({
+      ok: true,
+      user: {
+        lineUserId,
+        displayName: verifiedToken.name || "",
+        pictureUrl: verifiedToken.picture || ""
+      },
+      scope: {
+        sourceType: "user",
+        sourceId: lineUserId,
+        sourceKey: `user_${lineUserId}`,
+        createdBy: lineUserId
+      }
+    })
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      return res.status(401).json({
+        ok: false,
+        error: "LINE idToken 驗證失敗"
+      })
+    }
+
+    if (err instanceof ConfigurationError) {
+      return res.status(500).json({
+        ok: false,
+        error: err.message
+      })
+    }
+
+    console.error("LINE auth failed", {
+      message: err?.message,
+      status: err?.status
+    })
+    res.status(500).json({
+      ok: false,
+      error: "LINE 登入驗證暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
 app.use("/api/tasks", requireWebAccessCode)
 
 app.get("/api/tasks", async (req, res) => {
@@ -287,6 +343,46 @@ function requireWebAccessCode(req, res, next) {
   }
 
   next()
+}
+
+async function verifyLineIdToken(idToken) {
+  const channelId = process.env.LINE_LOGIN_CHANNEL_ID
+
+  if (!channelId) {
+    throw new ConfigurationError("LINE_LOGIN_CHANNEL_ID is not configured")
+  }
+
+  const body = new URLSearchParams({
+    id_token: idToken,
+    client_id: channelId
+  })
+
+  const response = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body
+  })
+
+  if (!response.ok) {
+    console.error("LINE idToken verify failed", {
+      status: response.status
+    })
+    throw new ValidationError("LINE idToken verify failed")
+  }
+
+  const data = await response.json()
+
+  if (!data.sub || data.aud !== channelId) {
+    console.error("LINE idToken payload invalid", {
+      hasSub: Boolean(data.sub),
+      audMatches: data.aud === channelId
+    })
+    throw new ValidationError("LINE idToken payload invalid")
+  }
+
+  return data
 }
 
 function formatTimestamp(value) {

@@ -517,6 +517,83 @@ gcloud run services update task-manager-bot \
 
 This is not a production login system. It is a small testing-stage protection layer to avoid casual access to the shared `web_default` task data. A formal version should use Firebase Auth, LINE Login, or LIFF with per-user authorization.
 
+## Stage 9B-1 LINE idToken Verification API
+
+The backend exposes a LIFF preparation endpoint:
+
+```text
+POST /api/auth/line
+```
+
+This endpoint receives a LINE `idToken`, verifies it with the official LINE verify endpoint, and returns the LINE user ID plus basic profile data. This stage does not change `/api/tasks`, does not switch `web_default`, and does not change the LINE Bot webhook.
+
+Required environment variable:
+
+```env
+LINE_LOGIN_CHANNEL_ID=your-line-login-channel-id
+```
+
+Local `.env` example:
+
+```env
+LINE_LOGIN_CHANNEL_ID=2000000000
+```
+
+Request body:
+
+```json
+{
+  "idToken": "LINE_ID_TOKEN"
+}
+```
+
+Successful response:
+
+```json
+{
+  "ok": true,
+  "user": {
+    "lineUserId": "Uxxxxxxxx",
+    "displayName": "LINE 顯示名稱",
+    "pictureUrl": "https://..."
+  },
+  "scope": {
+    "sourceType": "user",
+    "sourceId": "Uxxxxxxxx",
+    "sourceKey": "user_Uxxxxxxxx",
+    "createdBy": "Uxxxxxxxx"
+  }
+}
+```
+
+Local curl tests:
+
+```bash
+curl -i -X POST http://localhost:8080/api/auth/line \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Missing `idToken` should return `400`.
+
+```bash
+curl -i -X POST http://localhost:8080/api/auth/line \
+  -H "Content-Type: application/json" \
+  -d '{"idToken":"YOUR_REAL_LINE_ID_TOKEN"}'
+```
+
+A valid LINE `idToken` should return `200`.
+
+Cloud Run environment variable:
+
+```bash
+gcloud run services update task-manager-bot \
+  --region asia-east1 \
+  --update-env-vars LINE_LOGIN_CHANNEL_ID="你的 LINE Login Channel ID"
+```
+
+`/api/auth/line` is not protected by `WEB_ACCESS_CODE` because it is the LINE identity verification entry point. Do not log full `idToken` values in application logs.
+
 ## Useful Commands
 
 ```bash
