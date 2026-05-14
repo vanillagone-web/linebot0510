@@ -130,12 +130,13 @@ app.post("/api/auth/line", async (req, res) => {
   }
 })
 
-app.use("/api/tasks", requireWebAccessCode)
+app.use("/api/tasks", resolveTaskScope)
 
 app.get("/api/tasks", async (req, res) => {
   try {
+    const scope = req.taskScope
     const snapshot = await db.collection("tasks")
-      .where("sourceKey", "==", WEB_SCOPE.sourceKey)
+      .where("sourceKey", "==", scope.sourceKey)
       .where("deletedAt", "==", null)
       .orderBy("lineTaskNo", "asc")
       .get()
@@ -153,6 +154,7 @@ app.get("/api/tasks", async (req, res) => {
 
 app.post("/api/tasks", async (req, res) => {
   try {
+    const scope = req.taskScope
     const title = typeof req.body?.title === "string" ? req.body.title.trim() : ""
 
     if (!title) {
@@ -166,8 +168,8 @@ app.post("/api/tasks", async (req, res) => {
     let lineTaskNo = 1
 
     await db.runTransaction(async (transaction) => {
-      lineTaskNo = await getNextTaskNoForScope(transaction, WEB_SCOPE)
-      transaction.set(taskRef, createWebTaskDocument({ ...req.body, title }, lineTaskNo))
+      lineTaskNo = await getNextTaskNoForScope(transaction, scope)
+      transaction.set(taskRef, createWebTaskDocument({ ...req.body, title }, lineTaskNo, scope))
     })
 
     const taskSnapshot = await taskRef.get()
@@ -186,6 +188,7 @@ app.post("/api/tasks", async (req, res) => {
 
 app.patch("/api/tasks/:id", async (req, res) => {
   try {
+    const scope = req.taskScope
     const taskRef = db.collection("tasks").doc(req.params.id)
     const taskSnapshot = await taskRef.get()
 
@@ -198,7 +201,7 @@ app.patch("/api/tasks/:id", async (req, res) => {
 
     const currentTask = taskSnapshot.data()
 
-    if (currentTask.sourceKey !== WEB_SCOPE.sourceKey || currentTask.deletedAt != null) {
+    if (currentTask.sourceKey !== scope.sourceKey || currentTask.deletedAt != null) {
       return res.status(404).json({
         ok: false,
         error: "找不到任務"
@@ -241,10 +244,12 @@ app.patch("/api/tasks/:id", async (req, res) => {
 
 app.patch("/api/tasks/:id/complete", async (req, res) => {
   try {
+    const scope = req.taskScope
     const taskRef = db.collection("tasks").doc(req.params.id)
     const taskSnapshot = await taskRef.get()
+    const task = taskSnapshot.exists ? taskSnapshot.data() : null
 
-    if (!taskSnapshot.exists || taskSnapshot.data().sourceKey !== WEB_SCOPE.sourceKey) {
+    if (!taskSnapshot.exists || task.sourceKey !== scope.sourceKey || task.deletedAt != null) {
       return res.status(404).json({
         ok: false,
         error: "找不到任務"
@@ -274,10 +279,12 @@ app.patch("/api/tasks/:id/complete", async (req, res) => {
 
 app.delete("/api/tasks/:id", async (req, res) => {
   try {
+    const scope = req.taskScope
     const taskRef = db.collection("tasks").doc(req.params.id)
     const taskSnapshot = await taskRef.get()
+    const task = taskSnapshot.exists ? taskSnapshot.data() : null
 
-    if (!taskSnapshot.exists || taskSnapshot.data().sourceKey !== WEB_SCOPE.sourceKey) {
+    if (!taskSnapshot.exists || task.sourceKey !== scope.sourceKey || task.deletedAt != null) {
       return res.status(404).json({
         ok: false,
         error: "找不到任務"
@@ -322,7 +329,52 @@ app.use((req, res, next) => {
   res.sendFile(path.join(distPath, "index.html"))
 })
 
-function requireWebAccessCode(req, res, next) {
+function getBearerToken(req) {
+  const authorization = req.get("Authorization") || ""
+  const prefix = "Bearer "
+
+  if (!authorization.startsWith(prefix)) {
+    return ""
+  }
+
+  return authorization.slice(prefix.length).trim()
+}
+
+function createLineUserScope(lineUserId) {
+  return {
+    sourceType: "user",
+    sourceId: lineUserId,
+    sourceKey: `user_${lineUserId}`,
+    userId: lineUserId,
+    groupId: null,
+    roomId: null,
+    createdBy: lineUserId
+  }
+}
+
+async function resolveTaskScope(req, res, next) {
+  const bearerToken = getBearerToken(req)
+
+  if (bearerToken) {
+    try {
+      const verifiedToken = await verifyLineIdToken(bearerToken)
+      req.taskScope = createLineUserScope(verifiedToken.sub)
+      return next()
+    } catch (err) {
+      if (err instanceof ConfigurationError) {
+        return res.status(500).json({
+          ok: false,
+          error: err.message
+        })
+      }
+
+      return res.status(401).json({
+        ok: false,
+        error: "LINE idToken 驗證失敗"
+      })
+    }
+  }
+
   const expectedCode = process.env.WEB_ACCESS_CODE
 
   if (!expectedCode) {
@@ -342,6 +394,7 @@ function requireWebAccessCode(req, res, next) {
     })
   }
 
+  req.taskScope = WEB_SCOPE
   next()
 }
 
@@ -397,7 +450,7 @@ function firestoreTaskToReactTask(doc) {
 
   return {
     id: doc.id,
-    groupId: data.groupId || WEB_SCOPE.sourceKey,
+    groupId: data.groupId || data.sourceKey || WEB_SCOPE.sourceKey,
     ticketNo: data.ticketNo || `WEB-${data.lineTaskNo || doc.id}`,
     title: data.title || data.content || "",
     description: data.description || "",
@@ -407,7 +460,7 @@ function firestoreTaskToReactTask(doc) {
     assignee: data.assignee || "Web User",
     department: data.department || "",
     reminders: Array.isArray(data.reminders) ? data.reminders : [],
-    createdBy: data.createdBy || WEB_SCOPE.createdBy,
+    createdBy: data.createdBy || data.userId || WEB_SCOPE.createdBy,
     createdAt: formatTimestamp(data.createdAt),
     updatedAt: formatTimestamp(data.updatedAt),
     color: data.color || "#17cfcf",
@@ -419,7 +472,7 @@ function firestoreTaskToReactTask(doc) {
   }
 }
 
-function createWebTaskDocument(payload, lineTaskNo) {
+function createWebTaskDocument(payload, lineTaskNo, scope = WEB_SCOPE) {
   const allowedPriorities = new Set(["LOW", "MEDIUM", "HIGH"])
   const priority = allowedPriorities.has(payload.priority) ? payload.priority : "MEDIUM"
   const assignee = typeof payload.assignee === "string" && payload.assignee.trim()
@@ -444,13 +497,13 @@ function createWebTaskDocument(payload, lineTaskNo) {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     lineTaskNo,
-    sourceType: WEB_SCOPE.sourceType,
-    sourceId: WEB_SCOPE.sourceId,
-    sourceKey: WEB_SCOPE.sourceKey,
-    userId: WEB_SCOPE.userId,
-    groupId: WEB_SCOPE.groupId,
-    roomId: WEB_SCOPE.roomId,
-    createdBy: WEB_SCOPE.createdBy,
+    sourceType: scope.sourceType,
+    sourceId: scope.sourceId,
+    sourceKey: scope.sourceKey,
+    userId: scope.userId,
+    groupId: scope.groupId,
+    roomId: scope.roomId,
+    createdBy: scope.createdBy,
     color: "#17cfcf",
     tags: [],
     notes: "",

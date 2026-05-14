@@ -669,6 +669,88 @@ Common errors:
 - Missing `openid` scope: `liff.getIDToken()` may return no token.
 - Wrong `LINE_LOGIN_CHANNEL_ID`: `/api/auth/line` verification fails.
 
+## Stage 9C-1 Task Scope Resolver
+
+The task API supports two authentication modes:
+
+1. LIFF / LINE user mode:
+
+```http
+Authorization: Bearer LINE_ID_TOKEN
+```
+
+The backend verifies the LINE `idToken` and uses:
+
+```text
+sourceType: user
+sourceId: LINE_USER_ID
+sourceKey: user_LINE_USER_ID
+createdBy: LINE_USER_ID
+```
+
+This allows LIFF frontend requests to use the same personal task scope as the LINE Bot personal chat.
+
+2. Access Code fallback mode:
+
+```http
+X-Web-Access-Code: your-access-code
+```
+
+The backend keeps using:
+
+```text
+sourceKey: web_default
+```
+
+If neither header is present, `/api/tasks` returns `401`.
+
+Protected task routes:
+
+- `GET /api/tasks`
+- `POST /api/tasks`
+- `PATCH /api/tasks/:id`
+- `PATCH /api/tasks/:id/complete`
+- `DELETE /api/tasks/:id`
+
+This stage does not modify `/webhook`, LINE Bot commands, Firestore collections, frontend UI, sessions, or JWTs.
+
+Local curl tests:
+
+```bash
+curl -i http://localhost:8080/api/tasks
+```
+
+No auth header should return `401`.
+
+```bash
+curl -i http://localhost:8080/api/tasks \
+  -H "X-Web-Access-Code: dev123"
+```
+
+Access Code mode should return `web_default` tasks.
+
+```bash
+curl -i http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer YOUR_REAL_LINE_ID_TOKEN"
+```
+
+LINE bearer mode should return `user_${lineUserId}` tasks.
+
+Create a LINE user scoped task:
+
+```bash
+curl -i -X POST http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer YOUR_REAL_LINE_ID_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"LIFF user scope test","priority":"MEDIUM","dueDate":"","assignee":"LINE User"}'
+```
+
+Known limitation:
+
+- The current frontend still needs a later step to send `Authorization: Bearer <idToken>` to `/api/tasks`.
+- Access Code fallback remains enabled for `web_default`.
+- Group task scope is still deferred.
+
 ## Useful Commands
 
 ```bash
