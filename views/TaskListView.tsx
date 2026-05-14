@@ -179,7 +179,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto pb-32 px-4 pt-4 hide-scrollbar">
+      <main className="flex-1 overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))] px-4 pt-4 hide-scrollbar">
         <div className="mb-6 space-y-4">
            <div className="relative">
              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
@@ -270,7 +270,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
 
       {/* Create Task Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] animate-in fade-in duration-300">
           <div className="w-full max-w-[420px] bg-white dark:bg-zinc-900 rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-500 max-h-[95vh] flex flex-col">
             <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900 sticky top-0 z-10">
               <div className="flex items-center gap-2">
@@ -287,7 +287,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 hide-scrollbar">
-              <form onSubmit={handleCreateTask} className="space-y-6 pb-4">
+              <form onSubmit={handleCreateTask} className="space-y-6 pb-8">
                 <div className="space-y-4">
                   <div>
                     <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">任務標題 *</p>
@@ -362,7 +362,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                     <ColorPicker selectedColor={newTask.color} onColorSelect={(color) => setNewTask({ ...newTask, color })} />
                   </div>
                 </div>
-                <div className="pt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pb-2">
+                <div className="pt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                   {createError && (
                     <p className="text-xs font-bold text-red-500 mb-3">{createError}</p>
                   )}
