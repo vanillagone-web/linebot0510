@@ -816,6 +816,38 @@ Fallback test:
 3. Confirm the UI shows `任務模式：Access Code 管理任務`.
 4. Tasks should read and write `web_default`.
 
+## LIFF Asset Path Troubleshooting
+
+If the LIFF URL opens a blank page and the browser console shows:
+
+```text
+Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html".
+```
+
+The likely cause is that Vite built `dist/index.html` with root absolute asset paths such as:
+
+```html
+<script type="module" src="/assets/index-xxxx.js"></script>
+```
+
+When opened from a LIFF URL, `/assets` may resolve to the wrong origin or path and receive the SPA fallback HTML instead of JavaScript. The fix is to build Vite assets with relative paths:
+
+```ts
+export default defineConfig({
+  base: './',
+})
+```
+
+After build, `dist/index.html` should reference assets as `./assets/...` or `assets/...`, not `/assets/...`.
+
+Test:
+
+```bash
+npm run build
+```
+
+Then inspect `dist/index.html` and confirm the generated CSS and JS paths do not start with `/assets`.
+
 ## Useful Commands
 
 ```bash
