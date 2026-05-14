@@ -747,9 +747,74 @@ curl -i -X POST http://localhost:8080/api/tasks \
 
 Known limitation:
 
-- The current frontend still needs a later step to send `Authorization: Bearer <idToken>` to `/api/tasks`.
 - Access Code fallback remains enabled for `web_default`.
 - Group task scope is still deferred.
+
+## Stage 9C-2 LIFF Task API Authorization
+
+The React frontend now sends task API requests with the best available authentication mode:
+
+1. If LIFF authentication succeeds, `/api/tasks` uses:
+
+```http
+Authorization: Bearer LINE_ID_TOKEN
+```
+
+The task API reads and writes:
+
+```text
+user_${lineUserId}
+```
+
+This allows the LIFF frontend and the LINE Bot personal chat to share the same personal task data.
+
+2. If no LINE `idToken` is available, the frontend falls back to:
+
+```http
+X-Web-Access-Code: WEB_ACCESS_CODE
+```
+
+The task API reads and writes:
+
+```text
+web_default
+```
+
+Current behavior:
+
+- LIFF mode: `user_${lineUserId}` personal tasks.
+- Access Code mode: `web_default` management tasks.
+- `WEB_ACCESS_CODE` remains enabled.
+- `idToken` is kept only in React state and is not saved to `localStorage`.
+- Group task scope is still deferred.
+
+LIFF URL test:
+
+1. Open the LIFF URL in the LINE app.
+2. Confirm the UI shows `任務模式：LINE 個人任務`.
+3. In the LINE Bot personal chat, send:
+
+```text
+新增 LIFF 共用測試
+```
+
+4. Refresh or reopen the LIFF frontend.
+5. The LIFF frontend should show the same task.
+6. Create a task in the LIFF frontend.
+7. In the LINE Bot personal chat, send:
+
+```text
+任務
+```
+
+8. The LINE Bot should show the task created from LIFF.
+
+Fallback test:
+
+1. Open the app outside LIFF or without a valid LINE `idToken`.
+2. Enter the Access Code.
+3. Confirm the UI shows `任務模式：Access Code 管理任務`.
+4. Tasks should read and write `web_default`.
 
 ## Useful Commands
 

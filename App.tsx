@@ -61,11 +61,13 @@ const App: React.FC = () => {
   const [lineAuthUser, setLineAuthUser] = useState<LineAuthUser | null>(null);
   const [lineAuthScope, setLineAuthScope] = useState<LineAuthScope | null>(null);
   const [lineAuthError, setLineAuthError] = useState<string | null>(null);
+  const [lineIdToken, setLineIdToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[0]);
 
   const activeGroup = MOCK_GROUPS.find(g => g.id === activeGroupId) || MOCK_GROUPS[0];
   const groupMembers = members.filter(m => m.groupIds.includes(activeGroupId) && m.isBotLinked);
   const groupTasks = tasks.filter(t => t.groupId === activeGroupId || t.groupId === 'web_default');
+  const taskModeText = lineIdToken ? '任務模式：LINE 個人任務' : '任務模式：Access Code 管理任務';
 
   const handleAccessDenied = (message = '未授權，請輸入正確的 access code。') => {
     localStorage.removeItem(WEB_ACCESS_CODE_STORAGE_KEY);
@@ -73,6 +75,22 @@ const App: React.FC = () => {
     setAccessCodeError(message);
     setTaskError(null);
   };
+
+  function getTaskApiHeaders(hasJson = false): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (hasJson) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    if (lineIdToken) {
+      headers.Authorization = `Bearer ${lineIdToken}`;
+    } else if (webAccessCode) {
+      headers['X-Web-Access-Code'] = webAccessCode;
+    }
+
+    return headers;
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -122,6 +140,7 @@ const App: React.FC = () => {
         }
 
         if (isMounted) {
+          setLineIdToken(idToken);
           setLineAuthUser(data.user);
           setLineAuthScope(data.scope);
         }
@@ -144,7 +163,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!webAccessCode) {
+    if (!lineIdToken && !webAccessCode) {
       setIsLoadingTasks(false);
       return;
     }
@@ -158,9 +177,7 @@ const App: React.FC = () => {
 
       try {
         const response = await fetch('/api/tasks', {
-          headers: {
-            'X-Web-Access-Code': webAccessCode
-          }
+          headers: getTaskApiHeaders()
         });
         const data = await response.json();
 
@@ -192,7 +209,7 @@ const App: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [webAccessCode]);
+  }, [lineIdToken, webAccessCode]);
 
   const handleAccessCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -225,10 +242,7 @@ const App: React.FC = () => {
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Web-Access-Code': webAccessCode
-        },
+        headers: getTaskApiHeaders(true),
         body: JSON.stringify(updates)
       });
       const data = await response.json();
@@ -256,9 +270,7 @@ const App: React.FC = () => {
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'DELETE',
-        headers: {
-          'X-Web-Access-Code': webAccessCode
-        }
+        headers: getTaskApiHeaders()
       });
       const data = await response.json();
 
@@ -285,10 +297,7 @@ const App: React.FC = () => {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Web-Access-Code': webAccessCode
-        },
+        headers: getTaskApiHeaders(true),
         body: JSON.stringify(payload)
       });
       const data = await response.json();
@@ -316,9 +325,7 @@ const App: React.FC = () => {
     try {
       const response = await fetch(`/api/tasks/${taskId}/complete`, {
         method: 'PATCH',
-        headers: {
-          'X-Web-Access-Code': webAccessCode
-        }
+        headers: getTaskApiHeaders()
       });
       const data = await response.json();
 
@@ -457,10 +464,11 @@ const App: React.FC = () => {
       ) : (
         <p>{isInitializingLiff ? '正在初始化 LINE 身份...' : lineAuthError || 'LINE 身份尚未驗證'}</p>
       )}
+      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-wider text-primary">{taskModeText}</p>
     </div>
   );
 
-  if (!webAccessCode) {
+  if (!lineIdToken && !webAccessCode) {
     return (
       <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center px-6 transition-colors duration-500">
         <form onSubmit={handleAccessCodeSubmit} className="w-full max-w-[360px] rounded-[32px] bg-white dark:bg-zinc-900 p-8 shadow-2xl border border-zinc-100 dark:border-zinc-800 space-y-5">
