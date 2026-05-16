@@ -848,6 +848,28 @@ npm run build
 
 Then inspect `dist/index.html` and confirm the generated CSS and JS paths do not start with `/assets`.
 
+## v0.4.0-liff-user-scope Release Notes
+
+Current stable tag:
+
+```text
+v0.4.0-liff-user-scope
+```
+
+Completed:
+
+- LIFF login is working.
+- The frontend can obtain the LINE user ID.
+- `/api/tasks` supports `Authorization: Bearer <LINE idToken>`.
+- The LIFF frontend uses `user_${lineUserId}`.
+- Access Code mode remains available and still uses `web_default`.
+- LINE Bot personal tasks and LIFF frontend personal tasks now share the same data.
+- LIFF mobile UI fixes were completed for the create-task button and the top LINE user info bar overlap.
+
+Still deferred:
+
+- Group task scope remains deferred.
+
 ## Useful Commands
 
 ```bash
