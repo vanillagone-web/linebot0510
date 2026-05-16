@@ -680,6 +680,23 @@ function getHelpText() {
 說明`
 }
 
+function getLiffTaskLinkText(scope) {
+  const liffUrl = process.env.LIFF_URL
+
+  if (!liffUrl) {
+    return ""
+  }
+
+  if (!scope || scope.sourceType !== "user") {
+    return ""
+  }
+
+  return `
+
+開啟任務管理頁：
+${liffUrl}`
+}
+
 function parseTaskId(idText) {
   const id = Number(idText)
   return Number.isInteger(id) && id > 0 ? id : null
@@ -751,7 +768,7 @@ async function listTasks(scope) {
     if (activeTasks.length === 0) {
       return `目前沒有未完成任務。
 
-輸入「新增 任務內容」來建立第一個任務。`
+輸入「新增 任務內容」來建立第一個任務。${getLiffTaskLinkText(scope)}`
     }
 
     const visibleTasks = activeTasks.slice(0, 20)
@@ -762,7 +779,7 @@ async function listTasks(scope) {
 
 ${taskLines}${limitText}
 
-輸入「完成 1」可完成任務。`
+輸入「完成 1」可完成任務。${getLiffTaskLinkText(scope)}`
   } catch (err) {
     console.error("Firestore listTasks failed", err)
     return "任務系統暫時發生問題，請稍後再試。"

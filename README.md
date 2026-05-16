@@ -870,6 +870,44 @@ Still deferred:
 
 - Group task scope remains deferred.
 
+## Stage 10A LINE Bot LIFF Link
+
+The LINE Bot can append the LIFF task management URL to personal task list replies.
+
+Required environment variable:
+
+```env
+LIFF_URL=https://liff.line.me/2010080247-glefOCCP
+```
+
+The link is appended when a user sends one of these commands in a personal chat:
+
+```text
+任務
+查看任務
+```
+
+Example reply suffix:
+
+```text
+開啟任務管理頁：
+https://liff.line.me/2010080247-glefOCCP
+```
+
+Cloud Run environment variable:
+
+```bash
+gcloud run services update task-manager-bot \
+  --region asia-east1 \
+  --update-env-vars LIFF_URL="https://liff.line.me/2010080247-glefOCCP"
+```
+
+Notes:
+
+- Only personal chat task lists include the LIFF link.
+- Group and room task lists do not include the LIFF link yet because LIFF group scope is still deferred.
+- If `LIFF_URL` is not configured, the Bot reply stays unchanged and no link is shown.
+
 ## Useful Commands
 
 ```bash
