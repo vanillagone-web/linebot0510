@@ -504,10 +504,12 @@ const App: React.FC = () => {
             {isLoadingTasks ? '正在讀取任務資料...' : taskError}
           </div>
         )}
-        <div className={`absolute left-3 right-3 z-[110] ${isLoadingTasks || taskError ? 'top-16' : 'top-3'}`}>
+        <div className="shrink-0 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-2">
           {lineAuthStatus}
         </div>
-        {renderView()}
+        <div className="min-h-0 flex-1">
+          {renderView()}
+        </div>
       </div>
     </div>
   );
