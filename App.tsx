@@ -66,7 +66,16 @@ const App: React.FC = () => {
 
   const activeGroup = MOCK_GROUPS.find(g => g.id === activeGroupId) || MOCK_GROUPS[0];
   const groupMembers = members.filter(m => m.groupIds.includes(activeGroupId) && m.isBotLinked);
-  const groupTasks = tasks.filter(t => t.groupId === activeGroupId || t.groupId === 'web_default');
+  const currentLineSourceKey = lineAuthScope?.sourceKey;
+  const groupTasks = lineIdToken && currentLineSourceKey
+    ? tasks.filter(task =>
+        task.groupId === currentLineSourceKey ||
+        task.sourceKey === currentLineSourceKey
+      )
+    : tasks.filter(task =>
+        task.groupId === activeGroupId ||
+        task.groupId === 'web_default'
+      );
   const taskModeText = lineIdToken ? '任務模式：LINE 個人任務' : '任務模式：Access Code 管理任務';
 
   const handleAccessDenied = (message = '未授權，請輸入正確的 access code。') => {
