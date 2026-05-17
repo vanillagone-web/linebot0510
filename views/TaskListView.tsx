@@ -30,6 +30,58 @@ interface TaskListViewProps {
 
 const PRESET_COLORS = ['#17cfcf', '#10B981', '#F59E0B', '#E78278', '#8B5CF6', '#3B82F6', '#EC4899', '#64748B'];
 
+type StatusFilter = 'ALL' | 'OPEN' | 'COMPLETED' | 'IN_PROGRESS' | 'OVERDUE';
+type PriorityFilter = 'ALL' | Task['priority'];
+type DateFilter = 'ALL' | 'TODAY' | 'OVERDUE' | 'NO_DUE_DATE';
+
+const parseLocalDate = (value?: string): Date | null => {
+  const dateValue = value?.trim();
+  if (!dateValue) return null;
+
+  const datePart = dateValue.split(' ')[0].split('T')[0];
+  const hyphenParts = datePart.split('-');
+  if (hyphenParts.length === 3) {
+    const [year, month, day] = hyphenParts.map(Number);
+    if (Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  const slashParts = datePart.split('/');
+  if (slashParts.length === 3) {
+    const [year, month, day] = slashParts.map(Number);
+    if (Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  return null;
+};
+
+const isToday = (value?: string): boolean => {
+  const date = parseLocalDate(value);
+  if (!date) return false;
+
+  const today = new Date();
+  return date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
+};
+
+const isOverdue = (value?: string, status?: Task['status']): boolean => {
+  if (status === 'COMPLETED') return false;
+  if (status === 'OVERDUE') return true;
+
+  const date = parseLocalDate(value);
+  if (!date) return false;
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return date.getTime() < todayStart.getTime();
+};
+
+const hasNoDueDate = (value?: string): boolean => !value?.trim();
+
 const ColorPicker: React.FC<{ selectedColor: string; onColorSelect: (color: string) => void }> = ({ selectedColor, onColorSelect }) => {
   const isPreset = PRESET_COLORS.includes(selectedColor);
 
@@ -64,6 +116,9 @@ const ColorPicker: React.FC<{ selectedColor: string; onColorSelect: (color: stri
 
 const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, members, tasks, onCreateTask, onRefreshTasks, isLoadingTasks, currentUser, activeGroup, allGroups, onSwitchGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('ALL');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -87,11 +142,41 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
   const [newTask, setNewTask] = useState(initialFormState);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => 
-      t.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (t.ticketNo && t.ticketNo.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [tasks, searchTerm]);
+    const keyword = searchTerm.trim().toLowerCase();
+
+    return tasks.filter(task => {
+      const matchesSearch = !keyword || [
+        task.title,
+        task.description,
+        task.ticketNo,
+        task.assignee,
+        task.notes,
+        ...(task.tags || [])
+      ].some(value => value?.toLowerCase().includes(keyword));
+
+      const matchesStatus = statusFilter === 'ALL' ||
+        (statusFilter === 'OPEN' && task.status !== 'COMPLETED') ||
+        (statusFilter === 'COMPLETED' && task.status === 'COMPLETED') ||
+        (statusFilter === 'IN_PROGRESS' && task.status === 'IN_PROGRESS') ||
+        (statusFilter === 'OVERDUE' && isOverdue(task.dueDate, task.status));
+
+      const matchesPriority = priorityFilter === 'ALL' || task.priority === priorityFilter;
+
+      const matchesDate = dateFilter === 'ALL' ||
+        (dateFilter === 'TODAY' && isToday(task.dueDate)) ||
+        (dateFilter === 'OVERDUE' && isOverdue(task.dueDate, task.status)) ||
+        (dateFilter === 'NO_DUE_DATE' && hasNoDueDate(task.dueDate));
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate;
+    });
+  }, [tasks, searchTerm, statusFilter, priorityFilter, dateFilter]);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('ALL');
+    setPriorityFilter('ALL');
+    setDateFilter('ALL');
+  };
 
   // 處理標籤新增 (Enter)
   const handleTagInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -216,6 +301,46 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
              />
+           </div>
+           <div className="grid grid-cols-2 gap-2">
+             <select
+               className="bg-white dark:bg-zinc-900 border-none rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black text-zinc-500 dark:text-zinc-300 focus:ring-2 focus:ring-primary/20"
+               value={statusFilter}
+               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+             >
+               <option value="ALL">狀態：全部</option>
+               <option value="OPEN">狀態：未完成</option>
+               <option value="COMPLETED">狀態：已完成</option>
+               <option value="IN_PROGRESS">狀態：進行中</option>
+               <option value="OVERDUE">狀態：逾期</option>
+             </select>
+             <select
+               className="bg-white dark:bg-zinc-900 border-none rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black text-zinc-500 dark:text-zinc-300 focus:ring-2 focus:ring-primary/20"
+               value={priorityFilter}
+               onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
+             >
+               <option value="ALL">優先級：全部</option>
+               <option value="HIGH">優先級：HIGH</option>
+               <option value="MEDIUM">優先級：MEDIUM</option>
+               <option value="LOW">優先級：LOW</option>
+             </select>
+             <select
+               className="bg-white dark:bg-zinc-900 border-none rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black text-zinc-500 dark:text-zinc-300 focus:ring-2 focus:ring-primary/20"
+               value={dateFilter}
+               onChange={(e) => setDateFilter(e.target.value as DateFilter)}
+             >
+               <option value="ALL">日期：全部</option>
+               <option value="TODAY">日期：今日到期</option>
+               <option value="OVERDUE">日期：已逾期</option>
+               <option value="NO_DUE_DATE">日期：無截止日期</option>
+             </select>
+             <button
+               type="button"
+               onClick={resetFilters}
+               className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black active:scale-95 transition-all"
+             >
+               重置篩選
+             </button>
            </div>
         </div>
 
