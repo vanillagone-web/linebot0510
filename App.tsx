@@ -53,7 +53,7 @@ declare global {
 const WEB_ACCESS_CODE_STORAGE_KEY = 'line_todo_web_access_code';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('LOGIN');
+  const [currentView, setCurrentView] = useState<ViewState>('TASK_LIST');
   const [activeGroupId, setActiveGroupId] = useState<string>(MOCK_GROUPS[0].id);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
@@ -227,6 +227,7 @@ const App: React.FC = () => {
           setLineIdToken(idToken);
           setLineAuthUser(data.user);
           setLineAuthScope(data.scope);
+          setCurrentView('TASK_LIST');
         }
       } catch (err) {
         if (isMounted) {
@@ -265,7 +266,24 @@ const App: React.FC = () => {
     setAccessCodeInput('');
     setAccessCodeError(null);
     setTaskError(null);
+    setCurrentView('TASK_LIST');
   };
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem(WEB_ACCESS_CODE_STORAGE_KEY);
+    setWebAccessCode('');
+    setAccessCodeInput('');
+    setAccessCodeError(null);
+    setLineIdToken(null);
+    setLineAuthUser(null);
+    setLineAuthScope(null);
+    setLineAuthError(null);
+    setTasks([]);
+    setTaskError(null);
+    setSelectedTaskId(null);
+    setIsLoadingTasks(false);
+    setCurrentView('TASK_LIST');
+  }, []);
 
   const navigateToExecution = (taskId: string) => {
     setSelectedTaskId(taskId);
@@ -484,7 +502,7 @@ const App: React.FC = () => {
       case 'HELP':
         return <HelpView onNavigate={setCurrentView} />;
       case 'SETTINGS':
-        return <SettingsView onNavigate={setCurrentView} members={members} currentUser={currentUser} onSwitchUser={handleSwitchUser} />;
+        return <SettingsView onNavigate={setCurrentView} members={members} currentUser={currentUser} onSwitchUser={handleSwitchUser} onLogout={handleLogout} />;
       default:
         return <LoginView onLoginSuccess={() => setCurrentView('TASK_LIST')} />;
     }

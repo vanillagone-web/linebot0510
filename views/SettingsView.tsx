@@ -8,9 +8,10 @@ interface SettingsViewProps {
   members: Member[];
   currentUser: Member;
   onSwitchUser: (member: Member) => void;
+  onLogout: () => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, currentUser, onSwitchUser }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, currentUser, onSwitchUser, onLogout }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyId = () => {
@@ -119,7 +120,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, curren
         </section>
 
         <button 
-          onClick={() => onNavigate('LOGIN')}
+          onClick={onLogout}
           className="w-full h-16 bg-red-50 dark:bg-red-900/10 text-red-500 rounded-[24px] font-black text-sm uppercase flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined">logout</span>
