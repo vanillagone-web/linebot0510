@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ViewState, Message, Task, Member } from '../types';
 import { MOCK_CHAT } from '../constants';
-import { GoogleGenAI } from "@google/genai";
 
 interface ChatViewProps {
   onNavigate: (view: ViewState) => void;
@@ -28,23 +27,11 @@ const ChatView: React.FC<ChatViewProps> = ({ onNavigate, onSelectTask, tasks, me
   const generateAIResponse = async (userPrompt: string) => {
     setIsTyping(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const taskContext = tasks.map(t => `- ${t.title} (狀態: ${t.status}, 負責人: ${t.assignee}, 優先權: ${t.priority})`).join('\n');
-      const memberContext = members.map(m => `- ${m.name} (生產力: ${m.productivity}%)`).join('\n');
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: userPrompt,
-        config: {
-          systemInstruction: `你是任務管理助手的 AI。以下是當前群組的任務資訊：\n${taskContext}\n\n成員資訊：\n${memberContext}\n\n請以親切、專業且簡短的方式回覆使用者。如果使用者詢問特定任務，請提供建議。回覆語言請使用繁體中文。`,
-        },
-      });
-
       const botMessage: Message = {
         id: `msg-ai-${Date.now()}`,
         sender: '任務小助手',
         avatar: 'https://picsum.photos/seed/bot/200',
-        text: response.text,
+        text: 'AI 助手目前暫未啟用，請稍後再試。',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isBot: true,
       };
