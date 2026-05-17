@@ -1,7 +1,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ViewState, Member, Task } from './types';
-import { MOCK_MEMBERS, MOCK_TASKS, MOCK_GROUPS, isUserAdmin } from './constants';
+import { MOCK_MEMBERS, MOCK_GROUPS, isUserAdmin } from './constants';
 import LoginView from './views/LoginView';
 import ChatView from './views/ChatView';
 import TaskListView from './views/TaskListView';
@@ -57,7 +57,7 @@ const App: React.FC = () => {
   const [activeGroupId, setActiveGroupId] = useState<string>(MOCK_GROUPS[0].id);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [webAccessCode, setWebAccessCode] = useState(() => localStorage.getItem(WEB_ACCESS_CODE_STORAGE_KEY) || '');
   const [accessCodeInput, setAccessCodeInput] = useState('');
   const [accessCodeError, setAccessCodeError] = useState<string | null>(null);
@@ -89,6 +89,7 @@ const App: React.FC = () => {
     setWebAccessCode('');
     setAccessCodeError(message);
     setTaskError(null);
+    setTasks([]);
   }, []);
 
   const handleLineAuthExpired = useCallback((message = 'LINE 登入已過期，請重新登入。') => {
@@ -97,6 +98,7 @@ const App: React.FC = () => {
     setLineAuthScope(null);
     setLineAuthError(message);
     setTaskError(null);
+    setTasks([]);
   }, []);
 
   const handleLineReLogin = useCallback(() => {
@@ -142,6 +144,7 @@ const App: React.FC = () => {
 
   const handleRefreshTasks = useCallback(async () => {
     if (!lineIdToken && !webAccessCode) {
+      setTasks([]);
       setIsLoadingTasks(false);
       return;
     }
