@@ -119,6 +119,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('ALL');
   const [dateFilter, setDateFilter] = useState<DateFilter>('ALL');
+  const [tagFilter, setTagFilter] = useState('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -140,6 +141,17 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
   };
 
   const [newTask, setNewTask] = useState(initialFormState);
+
+  const availableTags = useMemo<string[]>(() => {
+    return Array.from(
+      new Set<string>(
+        tasks
+          .flatMap(task => task.tags || [])
+          .map(tag => tag.trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  }, [tasks]);
 
   const filteredTasks = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -167,15 +179,26 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
         (dateFilter === 'OVERDUE' && isOverdue(task.dueDate, task.status)) ||
         (dateFilter === 'NO_DUE_DATE' && hasNoDueDate(task.dueDate));
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesDate;
+      const matchesTag = tagFilter === 'ALL' || (task.tags || []).includes(tagFilter);
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDate && matchesTag;
     });
-  }, [tasks, searchTerm, statusFilter, priorityFilter, dateFilter]);
+  }, [tasks, searchTerm, statusFilter, priorityFilter, dateFilter, tagFilter]);
+
+  const activeFilterCount = [
+    Boolean(searchTerm.trim()),
+    statusFilter !== 'ALL',
+    priorityFilter !== 'ALL',
+    dateFilter !== 'ALL',
+    tagFilter !== 'ALL'
+  ].filter(Boolean).length;
 
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
     setPriorityFilter('ALL');
     setDateFilter('ALL');
+    setTagFilter('ALL');
   };
 
   // 處理標籤新增 (Enter)
@@ -334,13 +357,34 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                <option value="OVERDUE">日期：已逾期</option>
                <option value="NO_DUE_DATE">日期：無截止日期</option>
              </select>
+             <select
+               className="bg-white dark:bg-zinc-900 border-none rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black text-zinc-500 dark:text-zinc-300 focus:ring-2 focus:ring-primary/20"
+               value={tagFilter}
+               onChange={(e) => setTagFilter(e.target.value)}
+             >
+               <option value="ALL">標籤：全部標籤</option>
+               {availableTags.map(tag => (
+                 <option key={tag} value={tag}>標籤：{tag}</option>
+               ))}
+             </select>
              <button
                type="button"
                onClick={resetFilters}
-               className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black active:scale-95 transition-all"
+               className="col-span-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl py-2.5 px-3 shadow-sm text-[11px] font-black active:scale-95 transition-all"
              >
                重置篩選
              </button>
+           </div>
+           <div className="min-h-5">
+             {activeFilterCount > 0 ? (
+               <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+                 已套用 {activeFilterCount} 個篩選
+               </p>
+             ) : (
+               <p className="text-[10px] font-bold text-zinc-300 dark:text-zinc-700">
+                 未套用篩選
+               </p>
+             )}
            </div>
         </div>
 
