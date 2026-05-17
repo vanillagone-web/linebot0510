@@ -15,6 +15,8 @@ interface TaskListViewProps {
     dueDate: string;
     assignee: string;
   }) => Promise<Task>;
+  onRefreshTasks: () => Promise<void>;
+  isLoadingTasks: boolean;
   currentUser: Member;
   activeGroup: Group;
   allGroups: Group[];
@@ -55,7 +57,7 @@ const ColorPicker: React.FC<{ selectedColor: string; onColorSelect: (color: stri
   );
 };
 
-const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, members, tasks, onCreateTask, currentUser, activeGroup, allGroups, onSwitchGroup }) => {
+const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, members, tasks, onCreateTask, onRefreshTasks, isLoadingTasks, currentUser, activeGroup, allGroups, onSwitchGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
@@ -158,9 +160,18 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
              <p className="text-[9px] text-primary font-black uppercase tracking-widest">機器人群組已連動</p>
            </div>
         </button>
-        <button onClick={() => setIsCreateModalOpen(true)} className="size-10 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
-          <span className="material-symbols-outlined">add</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRefreshTasks}
+            disabled={isLoadingTasks}
+            className="size-10 bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 rounded-full flex items-center justify-center shadow-sm border border-zinc-100 dark:border-zinc-700 active:scale-90 transition-transform disabled:opacity-50 disabled:active:scale-100"
+          >
+            <span className={`material-symbols-outlined ${isLoadingTasks ? 'animate-spin' : ''}`}>refresh</span>
+          </button>
+          <button onClick={() => setIsCreateModalOpen(true)} className="size-10 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+            <span className="material-symbols-outlined">add</span>
+          </button>
+        </div>
       </nav>
 
       {/* Group Switcher Dropdown */}

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ViewState, Member, Task } from './types';
 import { MOCK_MEMBERS, MOCK_TASKS, MOCK_GROUPS, isUserAdmin } from './constants';
 import LoginView from './views/LoginView';
@@ -78,14 +78,14 @@ const App: React.FC = () => {
       );
   const taskModeText = lineIdToken ? '任務模式：LINE 個人任務' : '任務模式：Access Code 管理任務';
 
-  const handleAccessDenied = (message = '未授權，請輸入正確的 access code。') => {
+  const handleAccessDenied = useCallback((message = '未授權，請輸入正確的 access code。') => {
     localStorage.removeItem(WEB_ACCESS_CODE_STORAGE_KEY);
     setWebAccessCode('');
     setAccessCodeError(message);
     setTaskError(null);
-  };
+  }, []);
 
-  function getTaskApiHeaders(hasJson = false): Record<string, string> {
+  const getTaskApiHeaders = useCallback((hasJson = false): Record<string, string> => {
     const headers: Record<string, string> = {};
 
     if (hasJson) {
@@ -99,7 +99,40 @@ const App: React.FC = () => {
     }
 
     return headers;
-  }
+  }, [lineIdToken, webAccessCode]);
+
+  const handleRefreshTasks = useCallback(async () => {
+    if (!lineIdToken && !webAccessCode) {
+      setIsLoadingTasks(false);
+      return;
+    }
+
+    setIsLoadingTasks(true);
+    setTaskError(null);
+    setAccessCodeError(null);
+
+    try {
+      const response = await fetch('/api/tasks', {
+        headers: getTaskApiHeaders()
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.ok !== true) {
+        if (response.status === 401) {
+          handleAccessDenied(data.error);
+          return;
+        }
+
+        throw new Error(data.error || '任務讀取失敗');
+      }
+
+      setTasks(data.tasks);
+    } catch (err) {
+      setTaskError(err instanceof Error ? err.message : '任務讀取失敗');
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  }, [getTaskApiHeaders, handleAccessDenied, lineIdToken, webAccessCode]);
 
   useEffect(() => {
     let isMounted = true;
@@ -172,53 +205,8 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!lineIdToken && !webAccessCode) {
-      setIsLoadingTasks(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadTasks = async () => {
-      setIsLoadingTasks(true);
-      setTaskError(null);
-      setAccessCodeError(null);
-
-      try {
-        const response = await fetch('/api/tasks', {
-          headers: getTaskApiHeaders()
-        });
-        const data = await response.json();
-
-        if (!response.ok || data.ok !== true) {
-          if (response.status === 401) {
-            handleAccessDenied(data.error);
-            return;
-          }
-
-          throw new Error(data.error || '任務讀取失敗');
-        }
-
-        if (isMounted) {
-          setTasks(data.tasks);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setTaskError(err instanceof Error ? err.message : '任務讀取失敗');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingTasks(false);
-        }
-      }
-    };
-
-    loadTasks();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [lineIdToken, webAccessCode]);
+    handleRefreshTasks();
+  }, [handleRefreshTasks]);
 
   const handleAccessCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -399,6 +387,8 @@ const App: React.FC = () => {
             members={groupMembers}
             tasks={groupTasks}
             onCreateTask={handleCreateTask}
+            onRefreshTasks={handleRefreshTasks}
+            isLoadingTasks={isLoadingTasks}
             currentUser={currentUser}
             activeGroup={activeGroup}
             allGroups={MOCK_GROUPS}
