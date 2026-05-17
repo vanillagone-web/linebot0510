@@ -87,6 +87,11 @@ const isOverdue = (value?: string, status?: Task['status']): boolean => {
 
 const hasNoDueDate = (value?: string): boolean => !value?.trim();
 
+const formatAssigneeName = (assignee?: string | null) => {
+  const name = typeof assignee === 'string' ? assignee.trim() : '';
+  return name || '未指派';
+};
+
 const getDueDateBadge = (task: Task) => {
   const baseClass = 'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase';
   const displayDate = task.dueDate?.split(' ')[0] || '';
@@ -489,7 +494,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                     </div>
                     <p className={`text-[#111818] dark:text-white font-bold truncate text-sm ${task.status === 'COMPLETED' ? 'line-through opacity-50' : ''}`}>{task.title}</p>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[9px] font-black uppercase" style={{ color: taskBaseColor }}>@{task.assignee}</span>
+                      <span className="text-[9px] font-black uppercase" style={{ color: taskBaseColor }}>@{formatAssigneeName(task.assignee)}</span>
                       {task.tags && task.tags.length > 0 && (
                         <>
                           <span className="size-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
@@ -608,6 +613,9 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                     <select className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={newTask.assigneeId} onChange={(e) => setNewTask({ ...newTask, assigneeId: e.target.value })}>
                       {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
+                    <p className="mt-1.5 text-[9px] font-bold leading-relaxed text-zinc-400">
+                      目前指派對象來自本機測試成員清單，尚未連動正式成員系統。
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 items-center">

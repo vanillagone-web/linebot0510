@@ -14,8 +14,14 @@ interface TaskExecutionViewProps {
 
 const PRESET_COLORS = ['#17cfcf', '#10B981', '#F59E0B', '#E78278', '#8B5CF6', '#3B82F6', '#EC4899', '#64748B'];
 
+const formatAssigneeName = (assignee?: string | null) => {
+  const name = typeof assignee === 'string' ? assignee.trim() : '';
+  return name || '未指派';
+};
+
 const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, members, onNavigate, onUpdateTask, onCompleteTask, onDeleteTask }) => {
   const task = tasks.find(t => t.id === taskId) || tasks[0];
+  const assigneeName = formatAssigneeName(task.assignee);
   
   // 計算累積工時秒數 (將 actualHours 轉回秒數)
   const initialSeconds = Math.round((task.actualHours || 0) * 3600);
@@ -530,9 +536,9 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
         {/* Footer Info */}
         <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 shadow-sm border border-gray-100 dark:border-zinc-800 flex items-center justify-between mb-24">
             <div className="flex items-center gap-3">
-                <img className="size-11 rounded-full border-2 border-primary/20" src={`https://picsum.photos/seed/${task.assignee}/100`} alt="" />
+                <img className="size-11 rounded-full border-2 border-primary/20" src={`https://picsum.photos/seed/${assigneeName}/100`} alt="" />
                 <div>
-                  <p className="text-sm font-black dark:text-white">{task.assignee}</p>
+                  <p className="text-sm font-black dark:text-white">{assigneeName}</p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">負責人</p>
                 </div>
             </div>
@@ -598,6 +604,9 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
                       {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                       {members.every(m => m.name !== editAssignee) && editAssignee && <option value={editAssignee}>{editAssignee}</option>}
                     </select>
+                    <p className="mt-1.5 text-[9px] font-bold leading-relaxed text-zinc-400">
+                      目前指派對象為文字欄位 / 測試成員清單，正式成員系統尚未啟用。
+                    </p>
                   </div>
                   <div>
                     <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">優先權</p>

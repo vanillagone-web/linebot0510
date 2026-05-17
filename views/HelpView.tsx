@@ -135,6 +135,7 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
               <li>AI 智慧助手：暫未啟用，目前不呼叫 Gemini / AI API。</li>
               <li>Google Sheets 同步：暫未啟用，目前僅保留 Excel 匯出。</li>
               <li>Dashboard 成員管理與權限角色：測試中，資料不會保存。</li>
+              <li>任務指派：目前保存為文字欄位，指派選單仍使用測試成員清單；正式成員、角色與權限系統規劃中。</li>
               <li>自動提醒 / push reminder：規劃中，尚未接排程或推播。</li>
               <li>自動暫停其他進行中任務：規劃中，目前不會自動處理。</li>
             </ul>
