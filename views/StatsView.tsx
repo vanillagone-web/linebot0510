@@ -162,7 +162,7 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
         
         <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-2xl gap-1 mb-4">
           {(['OVERVIEW', 'TIME_ANALYSIS', 'SYNC_LOG'] as const).map((tab) => {
-            if (tab === 'SYNC_LOG' && !isAdmin) return null;
+            if (tab === 'SYNC_LOG') return null;
             return (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-400 dark:text-zinc-500'}`}>
                 {tab === 'OVERVIEW' ? '概覽' : tab === 'TIME_ANALYSIS' ? '效能' : '同步'}
@@ -170,6 +170,11 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
             );
           })}
         </div>
+        {isAdmin && (
+          <p className="text-[10px] font-bold text-zinc-400 leading-relaxed">
+            Google Sheets 同步目前暫未啟用；本頁保留 Excel 匯出與現有任務統計。
+          </p>
+        )}
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-40 hide-scrollbar">

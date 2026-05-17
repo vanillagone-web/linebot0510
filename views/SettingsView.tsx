@@ -98,33 +98,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, curren
           </section>
         )}
 
-        {/* 身分切換 (開發/測試用) */}
-        <section className="space-y-4">
-          <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">快速切換測試身分</h3>
-          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-4 shadow-sm border border-gray-50 dark:border-zinc-800 overflow-x-auto no-scrollbar flex gap-4">
-            {members.map(m => (
-              <button 
-                key={m.id}
-                onClick={() => onSwitchUser(m)}
-                className={`flex items-center gap-3 shrink-0 p-3 rounded-2xl border-2 transition-all ${m.id === currentUser.id ? 'bg-primary/5 border-primary' : 'border-transparent bg-zinc-50 dark:bg-zinc-800'}`}
-              >
-                <img src={m.avatar} className="size-10 rounded-full bg-white shadow-sm" alt="" />
-                <div className="text-left">
-                  <p className="text-xs font-black text-zinc-900 dark:text-white">{m.name.split(' ')[0]}</p>
-                  <p className="text-[8px] text-gray-400 font-bold uppercase">{m.role}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
         {/* 系統設定清單 */}
         <section className="space-y-4">
           <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">應用程式設定</h3>
           <div className="bg-white dark:bg-zinc-900 rounded-[32px] overflow-hidden border border-gray-50 dark:border-zinc-800">
-            <SettingItem icon="notifications" label="推播通知管理" />
-            <SettingItem icon="palette" label="外觀樣式切換" />
-            <SettingItem icon="lock" label="LINE 連動與隱私" />
+            <SettingItem icon="notifications" label="推播通知管理" disabled />
+            <SettingItem icon="palette" label="外觀樣式切換" disabled />
+            <SettingItem icon="lock" label="LINE 連動與隱私" disabled />
             <button 
               onClick={() => onNavigate('HELP')}
               className="w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -152,11 +132,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, curren
   );
 };
 
-const SettingItem: React.FC<{ icon: string; label: string; border?: boolean }> = ({ icon, label, border = true }) => (
-  <button className={`w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${border ? 'border-b border-gray-50 dark:border-zinc-800' : ''}`}>
+const SettingItem: React.FC<{ icon: string; label: string; border?: boolean; disabled?: boolean }> = ({ icon, label, border = true, disabled = false }) => (
+  <button disabled={disabled} className={`w-full flex items-center justify-between p-5 transition-colors ${border ? 'border-b border-gray-50 dark:border-zinc-800' : ''} ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
     <div className="flex items-center gap-4">
       <span className="material-symbols-outlined text-gray-400">{icon}</span>
-      <span className="text-sm font-bold text-zinc-900 dark:text-white">{label}</span>
+      <div className="flex flex-col items-start">
+        <span className="text-sm font-bold text-zinc-900 dark:text-white">{label}</span>
+        {disabled && <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">暫未啟用</span>}
+      </div>
     </div>
     <span className="material-symbols-outlined text-zinc-300 text-sm">chevron_right</span>
   </button>

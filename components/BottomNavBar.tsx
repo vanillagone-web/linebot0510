@@ -12,7 +12,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentView, onNavigate }) 
     { id: 'TASK_LIST', label: '任務', icon: 'assignment_late' },
     { id: 'CALENDAR', label: '日曆', icon: 'calendar_month' },
     { id: 'STATS', label: '數據', icon: 'analytics' },
-    { id: 'DASHBOARD', label: '成員', icon: 'group' },
     { id: 'SETTINGS', label: '設定', icon: 'settings' },
   ];
 
