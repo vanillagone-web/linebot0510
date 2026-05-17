@@ -29,6 +29,11 @@ interface TaskListViewProps {
 }
 
 const PRESET_COLORS = ['#17cfcf', '#10B981', '#F59E0B', '#E78278', '#8B5CF6', '#3B82F6', '#EC4899', '#64748B'];
+const dateQuickFilters = [
+  { value: 'TODAY', label: '今日到期' },
+  { value: 'OVERDUE', label: '已逾期' },
+  { value: 'NO_DUE_DATE', label: '無截止日期' },
+] as const;
 
 type StatusFilter = 'ALL' | 'OPEN' | 'COMPLETED' | 'IN_PROGRESS' | 'OVERDUE';
 type PriorityFilter = 'ALL' | Task['priority'];
@@ -412,6 +417,31 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
              >
                重置篩選
              </button>
+           </div>
+           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+             {dateQuickFilters.map(filter => {
+               const isActive = dateFilter === filter.value;
+               const activeClass = filter.value === 'TODAY'
+                 ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
+                 : filter.value === 'OVERDUE'
+                   ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                   : 'bg-zinc-200 text-zinc-600 border-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-600';
+
+               return (
+                 <button
+                   key={filter.value}
+                   type="button"
+                   onClick={() => setDateFilter(filter.value)}
+                   className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold border transition-all active:scale-95 ${
+                     isActive
+                       ? activeClass
+                       : 'bg-white dark:bg-zinc-900 text-zinc-400 border-zinc-100 dark:border-zinc-800'
+                   }`}
+                 >
+                   {filter.label}
+                 </button>
+               );
+             })}
            </div>
            <div className="min-h-5">
              {activeFilterCount > 0 ? (
