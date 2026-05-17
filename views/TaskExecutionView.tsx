@@ -25,6 +25,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [activeSubTaskPicker, setActiveSubTaskPicker] = useState<string | null>(null);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [draftSubTasks, setDraftSubTasks] = useState<SubTask[] | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   const isTaskRunning = task.status === 'IN_PROGRESS';
@@ -177,20 +178,38 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     }, 'Delete subtask');
   };
 
-  const onDragStart = (index: number) => setDraggedItemIndex(index);
+  const onDragStart = (index: number) => {
+    setDraggedItemIndex(index);
+    setDraftSubTasks([...(task.subTasks || [])]);
+  };
+
   const onDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedItemIndex === null || draggedItemIndex === index) return;
-    const items = [...(task.subTasks || [])];
+    const items = [...(draftSubTasks || task.subTasks || [])];
     const draggedItem = items[draggedItemIndex];
+    if (!draggedItem) return;
     items.splice(draggedItemIndex, 1);
     items.splice(index, 0, draggedItem);
     setDraggedItemIndex(index);
-    updateTask({ subTasks: items }, 'Reorder subtasks').catch(() => undefined);
+    setDraftSubTasks(items);
   };
+
   const onDragEnd = async () => {
-    setDraggedItemIndex(null);
-    await updateTask({ history: addHistoryEntry('↕️ 重新排列了子任務順序') }, 'Finish reordering subtasks');
+    const originalSubTasks = task.subTasks || [];
+    const hasOrderChanged = Boolean(draftSubTasks) && draftSubTasks.some((subTask, index) => subTask.id !== originalSubTasks[index]?.id);
+
+    try {
+      if (draftSubTasks && hasOrderChanged) {
+        await updateTask({
+          subTasks: draftSubTasks,
+          history: addHistoryEntry('↕️ 重新排列了子任務順序')
+        }, 'Finish reordering subtasks');
+      }
+    } finally {
+      setDraggedItemIndex(null);
+      setDraftSubTasks(null);
+    }
   };
 
   const formatTime = (totalSeconds: number) => {
@@ -205,7 +224,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   };
 
   const time = formatTime(seconds);
-  const subtasks = task.subTasks || [];
+  const subtasks = draftSubTasks ?? task.subTasks ?? [];
   const completedSubTasks = subtasks.filter(st => st.isCompleted).length;
   const totalSubTasks = subtasks.length;
   const progressPercent = totalSubTasks > 0 ? (completedSubTasks / totalSubTasks) * 100 : 0;
