@@ -25,11 +25,28 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 py-8 space-y-10 hide-scrollbar pb-40">
+        {/* Current Stable Features */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 text-primary">
+            <span className="material-symbols-outlined font-black">verified</span>
+            <h3 className="text-xs font-black uppercase tracking-widest">目前正式可用</h3>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 border border-gray-100 dark:border-zinc-800 shadow-sm">
+            <ul className="grid grid-cols-1 gap-3 text-xs text-zinc-500 dark:text-zinc-400 font-bold leading-relaxed">
+              <li>任務列表、搜尋與狀態 / 優先級 / 日期 / 標籤篩選。</li>
+              <li>新增、編輯、完成、刪除任務，並同步保存到 Firestore。</li>
+              <li>到期提示、日曆檢視與 Excel 匯出。</li>
+              <li>LIFF 個人任務會與 LINE Bot 個人任務共用同一份資料。</li>
+              <li>LINE Bot 支援說明、新增、查看、完成與刪除任務基本指令。</li>
+            </ul>
+          </div>
+        </section>
+
         {/* Section 1: Core Logic */}
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-primary">
             <span className="material-symbols-outlined font-black">timer</span>
-            <h3 className="text-xs font-black uppercase tracking-widest">任務計時核心邏輯</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest">任務計時狀態</h3>
           </div>
           <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 border border-gray-100 dark:border-zinc-800 shadow-sm space-y-4">
              <div className="flex gap-4">
@@ -37,9 +54,9 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
                   <span className="material-symbols-outlined text-sm font-black">looks_one</span>
                 </div>
                 <div>
-                   <h4 className="text-sm font-black dark:text-white mb-1">單一任務專注原則</h4>
+                   <h4 className="text-sm font-black dark:text-white mb-1">計時器可記錄目前任務</h4>
                    <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                     為了確保工時統計的精確性，系統限制成員同一時間<span className="text-primary font-bold font-black">只能處理一個</span>任務。
+                     任務詳情頁可更新任務狀態與實際工時，適合用來記錄個人進度。
                    </p>
                 </div>
              </div>
@@ -48,9 +65,9 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
                   <span className="material-symbols-outlined text-sm font-black">sync_alt</span>
                 </div>
                 <div>
-                   <h4 className="text-sm font-black dark:text-white mb-1">自動暫停機制</h4>
+                   <h4 className="text-sm font-black dark:text-white mb-1">自動暫停其他任務：規劃中</h4>
                    <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                     當您在執行畫面點擊「啟動計時」時，系統會自動將您原本正在處理的其他任務設為「暫停」，並記錄在異動歷程中。
+                     目前不會自動暫停其他進行中任務。若需要單一任務專注規則，後續會另行實作與測試。
                    </p>
                 </div>
              </div>
@@ -68,20 +85,20 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-16 translate-x-16" />
                 <h4 className="text-sm font-black text-white mb-2 flex items-center gap-2">
                    <span className="material-symbols-outlined text-primary text-sm">visibility</span>
-                   成員即時監控
+                   Dashboard 成員管理：測試中
                 </h4>
                 <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">
-                   管理員在「成員管理 (Dashboard)」頁面中，可以即時看到每位成員目前「正在處理中」的任務名稱。點擊任務標籤可快速切換至該任務執行介面。
+                   Dashboard 目前已從主導覽隱藏，成員與權限資料仍屬測試資料。角色切換不會保存，也不會影響正式權限。
                 </p>
              </div>
              
              <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 border border-gray-100 dark:border-zinc-800 shadow-sm">
                 <h4 className="text-sm font-black dark:text-white mb-2 flex items-center gap-2">
                    <span className="material-symbols-outlined text-primary text-sm">cloud_sync</span>
-                   Google Sheets 同步
+                   Google Sheets 同步：暫未啟用
                 </h4>
                 <p className="text-[11px] text-zinc-500 font-medium leading-relaxed">
-                   在數據中心 (Stats) 內，管理員可將當前任務列表一鍵同步至 Google Sheets。系統會自動根據任務 ID 進行去重與更新。
+                   目前保留 Excel 匯出作為正式可用功能；Google Sheets 同步入口已暫時隱藏，尚未接上正式後端同步流程。
                 </p>
              </div>
           </div>
@@ -91,19 +108,36 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-primary">
             <span className="material-symbols-outlined font-black">smart_toy</span>
-            <h3 className="text-xs font-black uppercase tracking-widest">AI 智慧助手應用</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest">AI 智慧助手：暫未啟用</h3>
           </div>
           <div className="bg-primary/5 rounded-[40px] p-8 border-2 border-dashed border-primary/20 space-y-6">
              <div className="space-y-2">
-                <p className="text-[11px] font-black text-primary uppercase">問法範例一</p>
-                <p className="text-sm font-bold dark:text-white">「誰目前身上任務最重？」</p>
-                <p className="text-xs text-zinc-400 leading-relaxed">AI 會分析成員剩餘任務量並給予建議。</p>
+                <p className="text-[11px] font-black text-primary uppercase">目前狀態</p>
+                <p className="text-sm font-bold dark:text-white">AI 助手目前不會呼叫 Gemini / AI API。</p>
+                <p className="text-xs text-zinc-400 leading-relaxed">Chat 頁僅保留暫停提示與本地任務摘要，避免前端暴露 AI key 或產生不可控費用。</p>
              </div>
              <div className="space-y-2">
-                <p className="text-[11px] font-black text-primary uppercase">問法範例二</p>
-                <p className="text-sm font-bold dark:text-white">「幫我總結目前的任務進度與瓶頸」</p>
-                <p className="text-xs text-zinc-400 leading-relaxed">AI 會快速彙整所有狀態，並標記過期或高優先權任務。</p>
+                <p className="text-[11px] font-black text-primary uppercase">未來規劃</p>
+                <p className="text-sm font-bold dark:text-white">若恢復 AI 功能，應改走後端 proxy。</p>
+                <p className="text-xs text-zinc-400 leading-relaxed">正式方案需包含權限檢查、rate limit、費用控制與後端金鑰保護。</p>
              </div>
+          </div>
+        </section>
+
+        {/* Planned Features */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2 text-primary">
+            <span className="material-symbols-outlined font-black">pending_actions</span>
+            <h3 className="text-xs font-black uppercase tracking-widest">暫未啟用 / 規劃中</h3>
+          </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 border border-gray-100 dark:border-zinc-800 shadow-sm">
+            <ul className="space-y-3 text-xs text-zinc-500 dark:text-zinc-400 font-bold leading-relaxed">
+              <li>AI 智慧助手：暫未啟用，目前不呼叫 Gemini / AI API。</li>
+              <li>Google Sheets 同步：暫未啟用，目前僅保留 Excel 匯出。</li>
+              <li>Dashboard 成員管理與權限角色：測試中，資料不會保存。</li>
+              <li>自動提醒 / push reminder：規劃中，尚未接排程或推播。</li>
+              <li>自動暫停其他進行中任務：規劃中，目前不會自動處理。</li>
+            </ul>
           </div>
         </section>
 
@@ -128,7 +162,7 @@ const HelpView: React.FC<HelpViewProps> = ({ onNavigate }) => {
                    <span className="material-symbols-outlined text-sm group-open:rotate-180 transition-transform">expand_more</span>
                 </summary>
                 <div className="px-4 pb-4 text-xs text-zinc-500 leading-relaxed">
-                   因為您在同一時間開啟了另一個任務。系統預設成員只能處理一個任務，以防止工時重複計算。
+                   目前系統不會自動暫停其他任務。如果未來啟用單一任務專注規則，會在正式版本紀錄中明確標示。
                 </div>
              </details>
              <details className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 overflow-hidden group">

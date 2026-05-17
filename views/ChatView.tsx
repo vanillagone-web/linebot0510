@@ -74,8 +74,8 @@ const ChatView: React.FC<ChatViewProps> = ({ onNavigate, onSelectTask, tasks, me
       sender: '任務小助手',
       avatar: 'https://picsum.photos/seed/bot/200',
       text: filteredTasks.length > 0 
-        ? `好的，已為您撈取目前優先權最高的 ${filteredTasks.length} 項未完成任務：`
-        : '目前沒有任何未完成的任務喔！真棒！',
+        ? `這不是 AI 分析，只是本地任務摘要。\n\n已為您撈取目前優先權最高的 ${filteredTasks.length} 項未完成任務：`
+        : '這不是 AI 分析，只是本地任務摘要。\n\n目前沒有任何未完成的任務喔！',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isBot: true,
       cardType: 'TASK_SUMMARY',
@@ -93,7 +93,7 @@ const ChatView: React.FC<ChatViewProps> = ({ onNavigate, onSelectTask, tasks, me
         </div>
         <div className="flex-1 flex flex-col items-center">
           <h2 className="text-[#111813] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">智慧助手對話</h2>
-          <span className="text-xs text-gray-500">AI 助理已連線</span>
+          <span className="text-xs text-gray-500">AI 助手暫未啟用</span>
         </div>
         <div className="flex w-10 items-center justify-end">
           <button className="flex size-10 items-center justify-center rounded-lg bg-transparent text-[#111813] dark:text-white">
@@ -104,6 +104,9 @@ const ChatView: React.FC<ChatViewProps> = ({ onNavigate, onSelectTask, tasks, me
 
       {/* Chat Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          AI 助手暫未啟用，目前不會呼叫 Gemini / AI API。下方「未完成任務」僅為本地任務摘要，不是 AI 分析。
+        </div>
         {messages.map((msg) => (
           <div key={msg.id} className={`flex gap-2 items-start animate-in fade-in slide-in-from-bottom-2 ${!msg.isBot ? 'flex-row-reverse' : ''}`}>
             <div 
@@ -154,8 +157,8 @@ const ChatView: React.FC<ChatViewProps> = ({ onNavigate, onSelectTask, tasks, me
       {/* Input Bar & Quick Actions */}
       <div className="bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800 shrink-0">
         <div className="flex gap-2 p-2 overflow-x-auto no-scrollbar bg-gray-50/50 dark:bg-zinc-800/50">
-           <button onClick={handleSummonTopTasks} className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-700 rounded-full border border-gray-200 dark:border-zinc-600 shadow-sm text-[9px] font-black text-primary whitespace-nowrap active:scale-95 transition-transform">📋 叫出未完成任務</button>
-           <button onClick={() => generateAIResponse("請幫我總結目前的任務進度與瓶頸")} className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-700 rounded-full border border-gray-200 dark:border-zinc-600 shadow-sm text-[9px] font-black text-amber-500 whitespace-nowrap active:scale-95 transition-transform">📊 AI 智慧總結</button>
+           <button onClick={handleSummonTopTasks} className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-700 rounded-full border border-gray-200 dark:border-zinc-600 shadow-sm text-[9px] font-black text-primary whitespace-nowrap active:scale-95 transition-transform">📋 本地未完成任務摘要</button>
+           <button disabled className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full border border-gray-200 dark:border-zinc-700 shadow-sm text-[9px] font-black text-zinc-400 whitespace-nowrap cursor-not-allowed">📊 AI 智慧總結暫未啟用</button>
         </div>
 
         <form onSubmit={handleSendMessage} className="px-3 py-2 pb-8 flex items-center gap-3">
@@ -163,7 +166,7 @@ const ChatView: React.FC<ChatViewProps> = ({ onNavigate, onSelectTask, tasks, me
           <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center px-4 py-2">
             <input 
               className="bg-transparent border-none focus:ring-0 text-sm w-full dark:text-white placeholder-gray-400" 
-              placeholder="詢問 AI 任務狀況..." 
+              placeholder="AI 助手暫未啟用"
               type="text" 
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}

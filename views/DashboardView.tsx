@@ -38,17 +38,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Sticky Header */}
       <div className="sticky top-0 z-50 bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-6 py-5 shrink-0 shadow-sm">
         <h1 className="text-xl font-black text-zinc-900 dark:text-white leading-tight">群組成員管理</h1>
-        <p className="text-[10px] text-primary font-black uppercase tracking-[0.2em] mt-1">{activeGroup.name}</p>
+        <p className="text-[10px] text-primary font-black uppercase tracking-[0.2em] mt-1">{activeGroup.name} · 測試資料</p>
       </div>
 
       <main className="flex-1 overflow-y-auto px-6 pb-40 hide-scrollbar">
+        <div className="mt-6 rounded-[28px] border border-amber-200 bg-amber-50 p-5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-lg">info</span>
+            <div className="space-y-1">
+              <h2 className="text-xs font-black">此頁目前為成員 / 權限測試資料</h2>
+              <p className="text-[11px] font-bold leading-relaxed">
+                角色切換不會保存，團隊與權限功能尚未正式啟用。成員統計與群組資訊僅供展示。
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-8 mb-6 flex items-center justify-between">
           <h3 className="text-xs font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-            群組內連動成員 ({members.length})
+            群組內連動成員 ({members.length}) · 展示資料
           </h3>
           {isAdmin && (
             <span className="text-[9px] font-black text-primary bg-primary/10 px-2.5 py-1 rounded-full uppercase">
-              您具備管理權限
+              測試管理權限
             </span>
           )}
         </div>
@@ -86,6 +98,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                                 <span className="material-symbols-outlined text-[10px] ml-0.5 opacity-50">sync_alt</span>
                               )}
                             </button>
+                            {isAdmin && member.id !== currentUser.id && (
+                              <span className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500">
+                                測試操作，不會保存
+                              </span>
+                            )}
                           </div>
                         </div>
                     </div>
@@ -136,13 +153,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             </h4>
             <ul className="space-y-3 text-[11px] text-zinc-400 font-medium">
               <li className="flex gap-2">
-                <span className="text-primary-green">●</span> 管理員專屬：您可以即時查看成員「進行中」的任務內容。
+                <span className="text-primary-green">●</span> 此頁為測試入口，成員資料與權限狀態尚未接上正式資料模型。
               </li>
               <li className="flex gap-2">
-                <span className="text-primary-green">●</span> 點擊成員的任務標籤可直接跳轉至該任務詳情。
+                <span className="text-primary-green">●</span> 成員「進行中」任務僅依目前前端資料展示，並非正式團隊監控功能。
               </li>
               <li className="flex gap-2">
-                <span className="text-primary-green">●</span> 成員角色切換：點擊角色標籤即可更新權限。
+                <span className="text-primary-green">●</span> 角色切換是測試操作，不會保存，也不會影響正式權限。
               </li>
             </ul>
           </div>
@@ -151,7 +168,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="mt-8 p-8 bg-primary/5 border-2 border-dashed border-primary/20 rounded-[40px] text-center mb-10">
            <h4 className="text-sm font-black text-zinc-900 dark:text-white mb-2">成員如何加入？</h4>
            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed">
-             成員需在 LINE 群組中點擊機器人提供的「個人中心」連結，完成官方帳號登入連動後，才會自動同步至此清單。
+             正式成員連動尚未啟用。目前此清單為展示 / 測試資料，未來才會規劃 LINE 群組或 LIFF 成員資料同步。
            </p>
         </div>
       </main>
