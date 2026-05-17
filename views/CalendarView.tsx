@@ -11,6 +11,44 @@ interface CalendarViewProps {
   initialDate?: Date;
 }
 
+const parseTaskDueDate = (dueDate: string | undefined, fallbackYear: number): Date | null => {
+  const value = dueDate?.trim();
+  if (!value) return null;
+
+  const today = new Date();
+  if (value.includes('今天') || value.includes('小時內')) {
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  }
+  if (value.includes('昨天')) {
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  }
+
+  const datePart = value.split(' ')[0].split('T')[0];
+  const hyphenParts = datePart.split('-');
+  if (hyphenParts.length === 3) {
+    const [year, month, day] = hyphenParts.map(Number);
+    if (Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  const slashParts = datePart.split('/');
+  if (slashParts.length === 3) {
+    const [year, month, day] = slashParts.map(Number);
+    if (Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(year, month - 1, day);
+    }
+  }
+  if (slashParts.length === 2) {
+    const [month, day] = slashParts.map(Number);
+    if (Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(fallbackYear, month - 1, day);
+    }
+  }
+
+  return null;
+};
+
 const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, onCompleteTask, tasks, initialDate }) => {
   const [currentDate, setCurrentDate] = useState(initialDate || new Date());
   const [selectedDate, setSelectedDate] = useState(initialDate || new Date());
@@ -47,23 +85,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, o
   const getTasksForDay = (day: number, month: number, year: number) => {
     const results: { task: Task }[] = [];
     tasks.forEach(t => {
-      let tDate: Date | null = null;
-      const dateMatch = t.dueDate.match(/(\d+)\/(\d+)/);
-      if (dateMatch) {
-        const parts = t.dueDate.split(' ')[0].split('/');
-        if (parts.length === 3) {
-          tDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        } else if (parts.length === 2) {
-          tDate = new Date(year, parseInt(parts[0]) - 1, parseInt(parts[1]));
-        }
-      } else {
-        const today = new Date();
-        if (t.dueDate.includes('今天') || t.dueDate.includes('小時內')) {
-          tDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        } else if (t.dueDate.includes('昨天')) {
-          tDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-        }
-      }
+      const tDate = parseTaskDueDate(t.dueDate, year);
 
       if (tDate && tDate.getDate() === day && tDate.getMonth() === month && tDate.getFullYear() === year) {
         results.push({ task: t });
