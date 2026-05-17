@@ -452,6 +452,7 @@ function firestoreTaskToReactTask(doc) {
     id: doc.id,
     groupId: data.groupId || data.sourceKey || WEB_SCOPE.sourceKey,
     ticketNo: data.ticketNo || `WEB-${data.lineTaskNo || doc.id}`,
+    ticketUrl: data.ticketUrl || "",
     title: data.title || data.content || "",
     description: data.description || "",
     status: data.status || (data.completed ? "COMPLETED" : "PENDING"),
@@ -480,9 +481,20 @@ function createWebTaskDocument(payload, lineTaskNo, scope = WEB_SCOPE) {
     : "Web User"
   const description = typeof payload.description === "string" ? payload.description.trim() : ""
   const dueDate = typeof payload.dueDate === "string" ? payload.dueDate.trim() : ""
+  const ticketNo = typeof payload.ticketNo === "string" ? payload.ticketNo.trim() : ""
+  const ticketUrl = typeof payload.ticketUrl === "string" ? payload.ticketUrl.trim() : ""
+  const tags = Array.isArray(payload.tags)
+    ? payload.tags.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim())
+    : []
+  const notes = typeof payload.notes === "string" ? payload.notes.trim() : ""
+  const color = typeof payload.color === "string" && payload.color.trim()
+    ? payload.color.trim()
+    : "#17cfcf"
 
   return {
     content: payload.title,
+    ticketNo: ticketNo || `WEB-${lineTaskNo}`,
+    ticketUrl,
     title: payload.title,
     description,
     completed: false,
@@ -504,9 +516,9 @@ function createWebTaskDocument(payload, lineTaskNo, scope = WEB_SCOPE) {
     groupId: scope.groupId,
     roomId: scope.roomId,
     createdBy: scope.createdBy,
-    color: "#17cfcf",
-    tags: [],
-    notes: "",
+    color,
+    tags,
+    notes,
     subTasks: []
   }
 }

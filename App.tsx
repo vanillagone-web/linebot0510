@@ -18,6 +18,11 @@ type CreateTaskPayload = {
   priority: Task['priority'];
   dueDate: string;
   assignee: string;
+  ticketNo?: string;
+  ticketUrl?: string;
+  tags?: string[];
+  notes?: string;
+  color?: string;
 };
 
 type LineAuthUser = {

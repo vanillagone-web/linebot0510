@@ -14,6 +14,11 @@ interface TaskListViewProps {
     priority: Task['priority'];
     dueDate: string;
     assignee: string;
+    ticketNo?: string;
+    ticketUrl?: string;
+    tags?: string[];
+    notes?: string;
+    color?: string;
   }) => Promise<Task>;
   onRefreshTasks: () => Promise<void>;
   isLoadingTasks: boolean;
@@ -120,6 +125,11 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
     if (!newTask.title.trim()) return;
     
     const assignedMember = members.find(m => m.id === newTask.assigneeId) || currentUser;
+    const pendingTags = tagInput
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(Boolean);
+    const tags = Array.from(new Set([...newTask.tags, ...pendingTags]));
 
     setIsCreatingTask(true);
     setCreateError(null);
@@ -130,7 +140,12 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
         description: newTask.description,
         priority: newTask.priority,
         dueDate: newTask.dueDate,
-        assignee: assignedMember.name
+        assignee: assignedMember.name,
+        ticketNo: newTask.ticketNo,
+        ticketUrl: newTask.ticketUrl,
+        tags,
+        notes: newTask.notes,
+        color: newTask.color
       });
 
       setIsCreateModalOpen(false);
