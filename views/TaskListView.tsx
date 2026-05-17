@@ -82,6 +82,44 @@ const isOverdue = (value?: string, status?: Task['status']): boolean => {
 
 const hasNoDueDate = (value?: string): boolean => !value?.trim();
 
+const getDueDateBadge = (task: Task) => {
+  const baseClass = 'inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase';
+  const displayDate = task.dueDate?.split(' ')[0] || '';
+
+  if (task.status === 'COMPLETED') {
+    return {
+      label: displayDate || '已完成',
+      className: `${baseClass} bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400`
+    };
+  }
+
+  if (task.status === 'OVERDUE' || isOverdue(task.dueDate, task.status)) {
+    return {
+      label: '已逾期',
+      className: `${baseClass} bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300`
+    };
+  }
+
+  if (isToday(task.dueDate)) {
+    return {
+      label: '今日到期',
+      className: `${baseClass} bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300`
+    };
+  }
+
+  if (hasNoDueDate(task.dueDate)) {
+    return {
+      label: '無截止日期',
+      className: `${baseClass} bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500`
+    };
+  }
+
+  return {
+    label: displayDate,
+    className: `${baseClass} bg-white/60 text-zinc-500 dark:bg-black/20 dark:text-zinc-400`
+  };
+};
+
 const ColorPicker: React.FC<{ selectedColor: string; onColorSelect: (color: string) => void }> = ({ selectedColor, onColorSelect }) => {
   const isPreset = PRESET_COLORS.includes(selectedColor);
 
@@ -394,6 +432,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
             const subTaskDone = task.subTasks?.filter(st => st.isCompleted).length || 0;
             const progress = subTaskTotal > 0 ? (subTaskDone / subTaskTotal) * 100 : 0;
             const taskBaseColor = task.color || '#17cfcf';
+            const dueDateBadge = getDueDateBadge(task);
 
             return (
               <div 
@@ -428,7 +467,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                         </>
                       )}
                       <span className="size-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
-                      <span className="text-[9px] text-zinc-500 font-bold uppercase">{task.dueDate.split(' ')[0]}</span>
+                      <span className={dueDateBadge.className}>{dueDateBadge.label}</span>
                     </div>
                   </div>
                   <div className="size-9 rounded-2xl bg-white/60 dark:bg-black/20 flex items-center justify-center text-primary-green transition-all self-center shadow-sm">
