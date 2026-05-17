@@ -908,6 +908,101 @@ Notes:
 - Group and room task lists do not include the LIFF link yet because LIFF group scope is still deferred.
 - If `LIFF_URL` is not configured, the Bot reply stays unchanged and no link is shown.
 
+## v0.4.3-task-ux-fixes Release Notes
+
+Task creation and calendar display were tightened to reduce data loss and date parsing surprises.
+
+Completed:
+
+- The create-task modal now saves the existing optional fields to Firestore.
+- `ticketNo`, `ticketUrl`, `tags`, `notes`, and `color` are persisted when creating a task.
+- `firestoreTaskToReactTask` now returns `ticketUrl`.
+- Calendar date parsing supports:
+  - `YYYY-MM-DD`
+  - ISO datetime strings
+  - `YYYY/MM/DD`
+  - `MM/DD`
+  - `今天`
+  - `小時內`
+  - `昨天`
+- Fixed the issue where Calendar could fail to show tasks created with the HTML date input because their `dueDate` used `YYYY-MM-DD`.
+
+## v0.4.4-security-gemini-disabled Release Notes
+
+Frontend Gemini usage was disabled as a security hardening step.
+
+Completed:
+
+- Removed frontend Gemini key injection from Vite config.
+- Stopped `ChatView` from calling the Gemini API directly from the browser.
+- `ChatView` now replies with:
+
+```text
+AI 助手目前暫未啟用，請稍後再試。
+```
+
+- Reduced the risk of exposing `GEMINI_API_KEY` in the frontend bundle.
+
+Future AI direction:
+
+- If AI features are restored, they should use a backend proxy.
+- The backend proxy should include authorization, rate limiting, and cost controls.
+- Do not put AI provider API keys in the frontend bundle.
+
+## v0.4.5-remove-mock-task-fallback Release Notes
+
+Production task state no longer falls back to demo tasks.
+
+Completed:
+
+- App task state now starts as an empty array.
+- Removed `MOCK_TASKS` fallback from the formal frontend task flow.
+- Access Code errors clear `tasks`.
+- LINE token expiration clears `tasks`.
+- Unauthenticated state clears `tasks`.
+- API failures show an error instead of showing fake tasks.
+
+Still retained:
+
+- `MOCK_MEMBERS` and `MOCK_GROUPS` remain because parts of the current UI still depend on them.
+
+## v0.4.6-subtask-drag-optimization Release Notes
+
+Subtask drag sorting was optimized to avoid excessive task updates.
+
+Completed:
+
+- Subtask drag sorting now uses local draft state during dragging.
+- Dragging no longer continuously sends `PATCH /api/tasks/:id`.
+- After `dragEnd`, if the order changed, the frontend sends one `PATCH` request.
+- This reduces Firestore writes, excessive requests, and race-condition risk.
+- Add, delete, check, and assign subtask actions are unchanged.
+
+Known limitation:
+
+- The current implementation still uses HTML drag events, so mobile touch-drag behavior may remain limited.
+
+## Current Stable Status
+
+- LINE Bot personal tasks and LIFF frontend tasks share `user_${lineUserId}`.
+- Access Code mode remains available and uses `web_default`.
+- Group and room task scopes are still only supported by the LINE Bot side.
+- LIFF group scope is deferred.
+- Cloud Run runs this app as a full-stack single service.
+- The LIFF endpoint should point to the current Cloud Run `status.url`.
+- `VITE_LIFF_ID` is a build-time environment variable. Make sure it is available when Vite builds the frontend.
+- LIFF / LINE WebView may cache old assets. Use a cache-busting URL when testing newly deployed frontend assets.
+
+## Recommended Next Steps
+
+1. Run a full regression test before adding more features.
+2. Then consider these follow-up areas:
+   - Group / room LIFF scope.
+   - Splitting `App.tsx` and `server.js` into smaller modules.
+   - Formal `members` / `groups` data model.
+   - AI backend proxy.
+   - Reminder scheduling and notifications.
+
 ## Useful Commands
 
 ```bash
