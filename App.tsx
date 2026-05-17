@@ -40,6 +40,7 @@ declare global {
       isLoggedIn: () => boolean;
       login: () => void;
       getIDToken: () => string | null;
+      logout?: () => void;
     };
   }
 }
@@ -85,6 +86,39 @@ const App: React.FC = () => {
     setTaskError(null);
   }, []);
 
+  const handleLineAuthExpired = useCallback((message = 'LINE 登入已過期，請重新登入。') => {
+    setLineIdToken(null);
+    setLineAuthUser(null);
+    setLineAuthScope(null);
+    setLineAuthError(message);
+    setTaskError(null);
+  }, []);
+
+  const handleLineReLogin = useCallback(() => {
+    setLineIdToken(null);
+    setLineAuthUser(null);
+    setLineAuthScope(null);
+    setLineAuthError(null);
+    setTaskError(null);
+
+    if (!window.liff) {
+      setLineAuthError('LIFF SDK 尚未載入，請重新開啟 LINE 頁面。');
+      return;
+    }
+
+    window.liff.logout?.();
+    window.liff.login();
+  }, []);
+
+  const handleTaskUnauthorized = useCallback((message?: string) => {
+    if (lineIdToken) {
+      handleLineAuthExpired(message);
+      return;
+    }
+
+    handleAccessDenied(message);
+  }, [handleAccessDenied, handleLineAuthExpired, lineIdToken]);
+
   const getTaskApiHeaders = useCallback((hasJson = false): Record<string, string> => {
     const headers: Record<string, string> = {};
 
@@ -119,7 +153,7 @@ const App: React.FC = () => {
 
       if (!response.ok || data.ok !== true) {
         if (response.status === 401) {
-          handleAccessDenied(data.error);
+          handleTaskUnauthorized(data.error);
           return;
         }
 
@@ -132,7 +166,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoadingTasks(false);
     }
-  }, [getTaskApiHeaders, handleAccessDenied, lineIdToken, webAccessCode]);
+  }, [getTaskApiHeaders, handleTaskUnauthorized, lineIdToken, webAccessCode]);
 
   useEffect(() => {
     let isMounted = true;
@@ -246,7 +280,7 @@ const App: React.FC = () => {
 
       if (!response.ok || data.ok !== true) {
         if (response.status === 401) {
-          handleAccessDenied(data.error);
+          handleTaskUnauthorized(data.error);
         }
 
         throw new Error(data.error || '任務更新失敗');
@@ -273,7 +307,7 @@ const App: React.FC = () => {
 
       if (!response.ok || data.ok !== true) {
         if (response.status === 401) {
-          handleAccessDenied(data.error);
+          handleTaskUnauthorized(data.error);
         }
 
         throw new Error(data.error || '任務刪除失敗');
@@ -301,7 +335,7 @@ const App: React.FC = () => {
 
       if (!response.ok || data.ok !== true) {
         if (response.status === 401) {
-          handleAccessDenied(data.error);
+          handleTaskUnauthorized(data.error);
         }
 
         throw new Error(data.error || '任務建立失敗');
@@ -328,7 +362,7 @@ const App: React.FC = () => {
 
       if (!response.ok || data.ok !== true) {
         if (response.status === 401) {
-          handleAccessDenied(data.error);
+          handleTaskUnauthorized(data.error);
         }
 
         throw new Error(data.error || '任務完成失敗');
@@ -461,7 +495,18 @@ const App: React.FC = () => {
           </div>
         </div>
       ) : (
-        <p>{isInitializingLiff ? '正在初始化 LINE 身份...' : lineAuthError || 'LINE 身份尚未驗證'}</p>
+        <div className="space-y-2">
+          <p>{isInitializingLiff ? '正在初始化 LINE 身份...' : lineAuthError || 'LINE 身份尚未驗證'}</p>
+          {lineAuthError && (
+            <button
+              type="button"
+              onClick={handleLineReLogin}
+              className="rounded-xl bg-primary px-3 py-1.5 text-[10px] font-black text-white active:scale-95 transition-transform"
+            >
+              重新登入 LINE
+            </button>
+          )}
+        </div>
       )}
       <p className="mt-1 truncate text-[9px] font-black uppercase tracking-wider text-primary">{taskModeText}</p>
     </div>
