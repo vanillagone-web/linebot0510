@@ -24,6 +24,8 @@ const WEB_SCOPE = {
 }
 const ALLOWED_TASK_UPDATE_FIELDS = new Set([
   "title",
+  "ticketNo",
+  "ticketUrl",
   "description",
   "status",
   "priority",
@@ -555,7 +557,7 @@ function buildTaskUpdatePayload(body, currentTask) {
       continue
     }
 
-    if (["description", "dueDate", "assignee", "department", "color", "notes"].includes(field)) {
+    if (["ticketNo", "ticketUrl", "description", "dueDate", "assignee", "department", "color", "notes"].includes(field)) {
       updatePayload[field] = assertStringField(value, field)
       continue
     }

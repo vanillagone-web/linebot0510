@@ -27,6 +27,20 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [draftSubTasks, setDraftSubTasks] = useState<SubTask[] | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTicketNo, setEditTicketNo] = useState('');
+  const [editTicketUrl, setEditTicketUrl] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editPriority, setEditPriority] = useState<Task['priority']>('MEDIUM');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState('');
+  const [editColor, setEditColor] = useState('#17cfcf');
+  const [isSavingTaskEdit, setIsSavingTaskEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const isTaskRunning = task.status === 'IN_PROGRESS';
 
@@ -122,6 +136,84 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
       color,
       history: addHistoryEntry(`🎨 變更任務顏色為 ${color}`)
     }, 'Update task color');
+  };
+
+  const openEditModal = () => {
+    setEditTitle(task.title || '');
+    setEditTicketNo(task.ticketNo || '');
+    setEditTicketUrl(task.ticketUrl || '');
+    setEditDescription(task.description || '');
+    setEditNotes(task.notes || '');
+    setEditDueDate(task.dueDate || '');
+    setEditAssignee(task.assignee || members[0]?.name || '');
+    setEditPriority(task.priority || 'MEDIUM');
+    setEditTags(task.tags || []);
+    setEditTagInput('');
+    setEditColor(task.color || '#17cfcf');
+    setEditError(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const newTags = editTagInput
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(Boolean);
+      if (newTags.length > 0) {
+        setEditTags(prev => Array.from(new Set([...prev, ...newTags])));
+      }
+      setEditTagInput('');
+    } else if (e.key === 'Backspace' && !editTagInput && editTags.length > 0) {
+      setEditTags(prev => prev.slice(0, -1));
+    }
+  };
+
+  const removeEditTag = (tagToRemove: string) => {
+    setEditTags(prev => prev.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleSaveTaskEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = editTitle.trim();
+    if (!title) {
+      setEditError('請輸入任務標題。');
+      return;
+    }
+
+    const pendingTags = editTagInput
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(Boolean);
+    const tags = Array.from(new Set([...editTags, ...pendingTags]));
+
+    setIsSavingTaskEdit(true);
+    setEditError(null);
+
+    const updatedTask = await updateTask({
+      title,
+      ticketNo: editTicketNo.trim(),
+      ticketUrl: editTicketUrl.trim(),
+      description: editDescription,
+      notes: editNotes,
+      dueDate: editDueDate,
+      assignee: editAssignee,
+      priority: editPriority,
+      tags,
+      color: editColor,
+      history: addHistoryEntry('✏️ 更新了任務內容')
+    }, 'Update task details');
+
+    setIsSavingTaskEdit(false);
+
+    if (updatedTask) {
+      setIsEditModalOpen(false);
+      setEditTagInput('');
+    } else {
+      setEditError('任務更新失敗，請稍後再試。');
+    }
   };
 
   const handleToggleSubTask = async (subTaskId: string) => {
@@ -252,10 +344,15 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
           </div>
           <h2 className="text-[#111818] dark:text-white text-base font-black leading-tight truncate w-full text-center">{task.title}</h2>
         </div>
-        <div 
-          className="size-4 rounded-full shadow-sm ring-2 ring-white dark:ring-zinc-800" 
-          style={{ backgroundColor: task.color || '#17cfcf' }} 
-        />
+        <div className="flex items-center gap-3">
+          <button onClick={openEditModal} className="size-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-300 flex items-center justify-center active:scale-90 transition-all">
+            <span className="material-symbols-outlined text-base">edit</span>
+          </button>
+          <div
+            className="size-4 rounded-full shadow-sm ring-2 ring-white dark:ring-zinc-800"
+            style={{ backgroundColor: task.color || '#17cfcf' }}
+          />
+        </div>
       </div>
 
       <main className="flex-1 overflow-y-auto pb-48 hide-scrollbar px-6 pt-6 space-y-6">
@@ -446,6 +543,116 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
             </div>
         </div>
       </main>
+
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-end justify-center px-4 pt-8 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="w-full max-w-[430px] max-h-[92vh] bg-white dark:bg-zinc-900 rounded-t-[40px] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+            <div className="shrink-0 p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-zinc-900 dark:text-white italic">編輯任務</h3>
+                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">更新後會同步至 Firestore</p>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} disabled={isSavingTaskEdit} className="size-8 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-zinc-400 active:scale-90 disabled:opacity-50">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 hide-scrollbar">
+              <form onSubmit={handleSaveTaskEdit} className="space-y-6 pb-8">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">任務標題 *</p>
+                    <input required type="text" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3.5 px-4 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">工單編號</p>
+                      <input type="text" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={editTicketNo} onChange={(e) => setEditTicketNo(e.target.value)} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">截止日期</p>
+                      <input type="date" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">外部 URL</p>
+                    <input type="url" className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={editTicketUrl} onChange={(e) => setEditTicketUrl(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">任務描述</p>
+                    <textarea rows={3} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20 resize-none" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">處理備註</p>
+                    <textarea rows={3} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20 resize-none" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">指派執行者</p>
+                    <select className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-3 px-4 text-xs font-bold dark:text-white focus:ring-2 focus:ring-primary/20" value={editAssignee} onChange={(e) => setEditAssignee(e.target.value)}>
+                      {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                      {members.every(m => m.name !== editAssignee) && editAssignee && <option value={editAssignee}>{editAssignee}</option>}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">優先權</p>
+                    <div className="flex bg-zinc-50 dark:bg-zinc-800 p-1 rounded-2xl gap-1">
+                      {(['LOW', 'MEDIUM', 'HIGH'] as Task['priority'][]).map(p => (
+                        <button key={p} type="button" onClick={() => setEditPriority(p)} className={`flex-1 py-1.5 rounded-xl text-[8px] font-black transition-all ${editPriority === p ? (p === 'HIGH' ? 'bg-red-500 text-white' : p === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-primary text-white') : 'text-zinc-400'}`}>
+                          {p === 'HIGH' ? '高' : p === 'MEDIUM' ? '中' : '低'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">標籤</p>
+                    <div className="bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl p-2 flex flex-wrap gap-2 items-center min-h-[46px] focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                      {editTags.map(tag => (
+                        <span key={tag} className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase">
+                          {tag}
+                          <button type="button" onClick={() => removeEditTag(tag)} className="hover:text-primary-green transition-colors">
+                            <span className="material-symbols-outlined text-[12px] font-bold">close</span>
+                          </button>
+                        </span>
+                      ))}
+                      <input type="text" placeholder={editTags.length === 0 ? "前台, 後台, 訂單 (按 Enter 建立)" : ""} className="flex-1 bg-transparent border-none focus:ring-0 text-[11px] font-bold dark:text-white p-1 min-w-[120px]" value={editTagInput} onChange={(e) => setEditTagInput(e.target.value)} onKeyDown={handleEditTagInputKeyDown} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-1.5 ml-1">識別色彩</p>
+                    <div className="flex flex-wrap gap-2">
+                      {PRESET_COLORS.map(color => (
+                        <button key={color} type="button" onClick={() => setEditColor(color)} className={`size-8 rounded-lg transition-all ring-offset-2 dark:ring-offset-zinc-900 shadow-sm ${editColor === color ? 'ring-2 ring-primary scale-110' : 'hover:scale-105 opacity-70'}`} style={{ backgroundColor: color }} />
+                      ))}
+                      <label className="size-8 rounded-lg transition-all ring-offset-2 dark:ring-offset-zinc-900 flex items-center justify-center cursor-pointer border-2 border-dashed border-gray-300 dark:border-zinc-700 opacity-70">
+                        <span className="material-symbols-outlined text-[14px] text-gray-400">colorize</span>
+                        <input type="color" className="sr-only" value={editColor} onChange={(e) => setEditColor(e.target.value)} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 sticky bottom-0 bg-white dark:bg-zinc-900 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                  {editError && (
+                    <p className="text-xs font-bold text-red-500 mb-3">{editError}</p>
+                  )}
+                  <button type="submit" disabled={isSavingTaskEdit} className="w-full h-14 bg-primary text-white rounded-[24px] font-black text-sm uppercase shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-60 disabled:active:scale-100">
+                    {isSavingTaskEdit ? '儲存中...' : '儲存任務'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Bottom Actions */}
       <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-t border-gray-100 dark:border-zinc-800 p-6 flex gap-4">
