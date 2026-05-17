@@ -711,6 +711,91 @@ function getLiffTaskLinkText(scope) {
 ${liffUrl}`
 }
 
+function parseLineTaskDueDate(value) {
+  const dateValue = typeof value === "string" ? value.trim() : ""
+  if (!dateValue) return null
+
+  const datePart = dateValue.split(" ")[0].split("T")[0]
+  const hyphenParts = datePart.split("-")
+  if (hyphenParts.length === 3) {
+    const [year, month, day] = hyphenParts.map(Number)
+    if (Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(year, month - 1, day)
+    }
+  }
+
+  const slashParts = datePart.split("/")
+  if (slashParts.length === 3) {
+    const [year, month, day] = slashParts.map(Number)
+    if (Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)) {
+      return new Date(year, month - 1, day)
+    }
+  }
+
+  return null
+}
+
+function formatLineTaskDueDate(value) {
+  const parsedDate = parseLineTaskDueDate(value)
+  if (parsedDate) {
+    const year = parsedDate.getFullYear()
+    const month = String(parsedDate.getMonth() + 1).padStart(2, "0")
+    const day = String(parsedDate.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
+
+  const dateValue = typeof value === "string" ? value.trim() : ""
+  return dateValue ? dateValue.split(" ")[0] : ""
+}
+
+function hasNoLineTaskDueDate(value) {
+  return !value || !String(value).trim()
+}
+
+function isLineTaskDueToday(value) {
+  const dueDate = parseLineTaskDueDate(value)
+  if (!dueDate) return false
+
+  const today = new Date()
+  return dueDate.getFullYear() === today.getFullYear() &&
+    dueDate.getMonth() === today.getMonth() &&
+    dueDate.getDate() === today.getDate()
+}
+
+function isLineTaskOverdue(value, status) {
+  if (status === "COMPLETED") return false
+  if (status === "OVERDUE") return true
+  if (hasNoLineTaskDueDate(value)) return false
+
+  const dueDate = parseLineTaskDueDate(value)
+  if (!dueDate) return false
+
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return dueDate.getTime() < todayStart.getTime()
+}
+
+function getLineTaskDueDateLabel(task) {
+  if (task.status === "COMPLETED") {
+    const completedDueDate = formatLineTaskDueDate(task.dueDate)
+    return completedDueDate ? `（${completedDueDate}）` : ""
+  }
+
+  if (task.status === "OVERDUE" || isLineTaskOverdue(task.dueDate, task.status)) {
+    return "（已逾期）"
+  }
+
+  if (isLineTaskDueToday(task.dueDate)) {
+    return "（今日到期）"
+  }
+
+  if (hasNoLineTaskDueDate(task.dueDate)) {
+    return "（無截止日期）"
+  }
+
+  return `（${formatLineTaskDueDate(task.dueDate)}）`
+}
+
 function parseTaskId(idText) {
   const id = Number(idText)
   return Number.isInteger(id) && id > 0 ? id : null
@@ -786,7 +871,10 @@ async function listTasks(scope) {
     }
 
     const visibleTasks = activeTasks.slice(0, 20)
-    const taskLines = visibleTasks.map((task) => `#${task.lineTaskNo} ${task.content}`).join("\n")
+    const taskLines = visibleTasks.map((task) => {
+      const title = task.content || task.title || ""
+      return `#${task.lineTaskNo} ${title}${getLineTaskDueDateLabel(task)}`
+    }).join("\n")
     const limitText = activeTasks.length > 20 ? "\n\n僅顯示前 20 筆未完成任務。" : ""
 
     return `目前未完成任務：
