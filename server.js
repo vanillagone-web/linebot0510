@@ -816,6 +816,7 @@ async function completeTask(idText, scope) {
 
     await taskDoc.ref.update({
       completed: true,
+      status: "COMPLETED",
       completedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     })
