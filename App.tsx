@@ -38,6 +38,16 @@ type LineAuthScope = {
   createdBy: string;
 };
 
+type ApiMember = {
+  id: string;
+  displayName?: string;
+  pictureUrl?: string;
+  lineUserId?: string | null;
+  sourceKey?: string;
+  role?: Member['role'];
+  isActive?: boolean;
+};
+
 declare global {
   interface Window {
     liff?: {
@@ -51,6 +61,7 @@ declare global {
 }
 
 const WEB_ACCESS_CODE_STORAGE_KEY = 'line_todo_web_access_code';
+const VALID_MEMBER_ROLES = new Set<Member['role']>(['ADMIN', 'MEMBER']);
 
 const getFallbackMembers = (): Member[] => MOCK_MEMBERS;
 
@@ -77,6 +88,19 @@ const getSafeGroupMembers = (members: Member[], activeGroupId: string): Member[]
 
   return filteredMembers.length > 0 ? filteredMembers : getSafeMembers(members);
 };
+
+const normalizeMember = (apiMember: ApiMember, fallbackGroupId: string): Member => ({
+  id: apiMember.id,
+  name: apiMember.displayName || apiMember.id,
+  avatar: apiMember.pictureUrl || `https://picsum.photos/seed/${apiMember.id}/200`,
+  status: apiMember.isActive === false ? 'OFFLINE' : 'ACTIVE',
+  productivity: 0,
+  avgDuration: '-',
+  completedTasks: 0,
+  isBotLinked: true,
+  groupIds: [fallbackGroupId],
+  role: apiMember.role && VALID_MEMBER_ROLES.has(apiMember.role) ? apiMember.role : 'MEMBER'
+});
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('TASK_LIST');
@@ -169,6 +193,46 @@ const App: React.FC = () => {
 
     return headers;
   }, [lineIdToken, webAccessCode]);
+
+  const handleRefreshMembers = useCallback(async () => {
+    if (!lineIdToken && !webAccessCode) {
+      setMembers(getFallbackMembers());
+      setCurrentUser(getFallbackCurrentUser());
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/members', {
+        headers: getTaskApiHeaders()
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.ok !== true) {
+        if (response.status === 401) {
+          handleTaskUnauthorized(data.error);
+        }
+
+        setMembers(getFallbackMembers());
+        setCurrentUser(getFallbackCurrentUser());
+        return;
+      }
+
+      const apiMembers = Array.isArray(data.members) ? data.members : [];
+      const normalizedMembers = apiMembers.map((member: ApiMember) => normalizeMember(member, activeGroupId));
+
+      if (normalizedMembers.length > 0) {
+        setMembers(normalizedMembers);
+        setCurrentUser(prev => getSafeCurrentUser(normalizedMembers, prev));
+        return;
+      }
+
+      setMembers(getFallbackMembers());
+      setCurrentUser(getFallbackCurrentUser());
+    } catch {
+      setMembers(getFallbackMembers());
+      setCurrentUser(getFallbackCurrentUser());
+    }
+  }, [activeGroupId, getTaskApiHeaders, handleTaskUnauthorized, lineIdToken, webAccessCode]);
 
   const handleRefreshTasks = useCallback(async () => {
     if (!lineIdToken && !webAccessCode) {
@@ -278,6 +342,10 @@ const App: React.FC = () => {
   useEffect(() => {
     handleRefreshTasks();
   }, [handleRefreshTasks]);
+
+  useEffect(() => {
+    handleRefreshMembers();
+  }, [handleRefreshMembers]);
 
   const handleAccessCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
