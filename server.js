@@ -132,6 +132,29 @@ app.post("/api/auth/line", async (req, res) => {
   }
 })
 
+app.use("/api/members", resolveTaskScope)
+
+app.get("/api/members", async (req, res) => {
+  try {
+    const scope = req.taskScope
+    const snapshot = await db.collection("members")
+      .where("sourceKey", "==", scope.sourceKey)
+      .get()
+
+    const members = snapshot.docs
+      .map((doc) => firestoreMemberToApiMember(doc, scope))
+      .filter((member) => member.isActive !== false)
+
+    res.status(200).json({ ok: true, members })
+  } catch (err) {
+    console.error("API get members failed", err)
+    res.status(500).json({
+      ok: false,
+      error: "成員資料暫時發生問題，請稍後再試。"
+    })
+  }
+})
+
 app.use("/api/tasks", resolveTaskScope)
 
 app.get("/api/tasks", async (req, res) => {
@@ -472,6 +495,20 @@ function firestoreTaskToReactTask(doc) {
     subTasks: Array.isArray(data.subTasks) ? data.subTasks : [],
     lineTaskNo: data.lineTaskNo,
     sourceKey: data.sourceKey
+  }
+}
+
+function firestoreMemberToApiMember(doc, scope) {
+  const data = doc.data()
+
+  return {
+    id: doc.id,
+    displayName: data.displayName || data.name || doc.id,
+    pictureUrl: data.pictureUrl || "",
+    lineUserId: data.lineUserId || null,
+    sourceKey: data.sourceKey || scope.sourceKey,
+    role: data.role || "MEMBER",
+    isActive: data.isActive !== false
   }
 }
 
