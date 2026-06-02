@@ -119,6 +119,9 @@ const App: React.FC = () => {
   const [lineAuthError, setLineAuthError] = useState<string | null>(null);
   const [lineIdToken, setLineIdToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<Member>(getFallbackCurrentUser);
+  const [memberSource, setMemberSource] = useState<'mock' | 'api'>('mock');
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   const safeMembers = getSafeMembers(members);
   const safeCurrentUser = getSafeCurrentUser(safeMembers, currentUser);
@@ -135,6 +138,13 @@ const App: React.FC = () => {
         task.groupId === 'web_default'
       );
   const taskModeText = lineIdToken ? '任務模式：LINE 個人任務' : '任務模式：Access Code 管理任務';
+  const memberSourceText = isLoadingMembers
+    ? '成員來源：讀取中'
+    : memberSource === 'api'
+      ? '成員來源：API'
+      : memberError
+        ? '成員來源：測試成員清單（API 讀取失敗）'
+        : '成員來源：測試成員清單';
 
   const handleAccessDenied = useCallback((message = '未授權，請輸入正確的 access code。') => {
     localStorage.removeItem(WEB_ACCESS_CODE_STORAGE_KEY);
@@ -198,8 +208,14 @@ const App: React.FC = () => {
     if (!lineIdToken && !webAccessCode) {
       setMembers(getFallbackMembers());
       setCurrentUser(getFallbackCurrentUser());
+      setMemberSource('mock');
+      setMemberError(null);
+      setIsLoadingMembers(false);
       return;
     }
+
+    setIsLoadingMembers(true);
+    setMemberError(null);
 
     try {
       const response = await fetch('/api/members', {
@@ -214,6 +230,8 @@ const App: React.FC = () => {
 
         setMembers(getFallbackMembers());
         setCurrentUser(getFallbackCurrentUser());
+        setMemberSource('mock');
+        setMemberError(data.error || '成員資料讀取失敗');
         return;
       }
 
@@ -223,14 +241,22 @@ const App: React.FC = () => {
       if (normalizedMembers.length > 0) {
         setMembers(normalizedMembers);
         setCurrentUser(prev => getSafeCurrentUser(normalizedMembers, prev));
+        setMemberSource('api');
+        setMemberError(null);
         return;
       }
 
       setMembers(getFallbackMembers());
       setCurrentUser(getFallbackCurrentUser());
-    } catch {
+      setMemberSource('mock');
+      setMemberError(null);
+    } catch (err) {
       setMembers(getFallbackMembers());
       setCurrentUser(getFallbackCurrentUser());
+      setMemberSource('mock');
+      setMemberError(err instanceof Error ? err.message : '成員資料讀取失敗');
+    } finally {
+      setIsLoadingMembers(false);
     }
   }, [activeGroupId, getTaskApiHeaders, handleTaskUnauthorized, lineIdToken, webAccessCode]);
 
@@ -631,6 +657,7 @@ const App: React.FC = () => {
         </div>
       )}
       <p className="mt-1 truncate text-[9px] font-black uppercase tracking-wider text-primary">{taskModeText}</p>
+      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-wider text-zinc-400">{memberSourceText}</p>
     </div>
   );
 
