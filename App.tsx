@@ -52,11 +52,37 @@ declare global {
 
 const WEB_ACCESS_CODE_STORAGE_KEY = 'line_todo_web_access_code';
 
+const getFallbackMembers = (): Member[] => MOCK_MEMBERS;
+
+const getFallbackCurrentUser = (): Member => MOCK_MEMBERS[0];
+
+const getFallbackActiveGroupId = (): string => MOCK_GROUPS[0].id;
+
+const getSafeMembers = (members: Member[]): Member[] => (
+  members.length > 0 ? members : getFallbackMembers()
+);
+
+const getSafeCurrentUser = (members: Member[], currentUser?: Member): Member => {
+  if (currentUser && members.some(member => member.id === currentUser.id)) {
+    return currentUser;
+  }
+
+  return members[0] || getFallbackCurrentUser();
+};
+
+const getSafeGroupMembers = (members: Member[], activeGroupId: string): Member[] => {
+  const filteredMembers = members.filter(member =>
+    member.groupIds.includes(activeGroupId) && member.isBotLinked
+  );
+
+  return filteredMembers.length > 0 ? filteredMembers : getSafeMembers(members);
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('TASK_LIST');
-  const [activeGroupId, setActiveGroupId] = useState<string>(MOCK_GROUPS[0].id);
+  const [activeGroupId, setActiveGroupId] = useState<string>(getFallbackActiveGroupId());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
+  const [members, setMembers] = useState<Member[]>(getFallbackMembers);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [webAccessCode, setWebAccessCode] = useState(() => localStorage.getItem(WEB_ACCESS_CODE_STORAGE_KEY) || '');
   const [accessCodeInput, setAccessCodeInput] = useState('');
@@ -68,10 +94,12 @@ const App: React.FC = () => {
   const [lineAuthScope, setLineAuthScope] = useState<LineAuthScope | null>(null);
   const [lineAuthError, setLineAuthError] = useState<string | null>(null);
   const [lineIdToken, setLineIdToken] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<Member>(MOCK_MEMBERS[0]);
+  const [currentUser, setCurrentUser] = useState<Member>(getFallbackCurrentUser);
 
+  const safeMembers = getSafeMembers(members);
+  const safeCurrentUser = getSafeCurrentUser(safeMembers, currentUser);
   const activeGroup = MOCK_GROUPS.find(g => g.id === activeGroupId) || MOCK_GROUPS[0];
-  const groupMembers = members.filter(m => m.groupIds.includes(activeGroupId) && m.isBotLinked);
+  const safeGroupMembers = getSafeGroupMembers(safeMembers, activeGroupId);
   const currentLineSourceKey = lineAuthScope?.sourceKey;
   const groupTasks = lineIdToken && currentLineSourceKey
     ? tasks.filter(task =>
@@ -436,7 +464,7 @@ const App: React.FC = () => {
             onNavigate={setCurrentView} 
             onSelectTask={navigateToExecution} 
             tasks={groupTasks} 
-            members={groupMembers}
+            members={safeGroupMembers}
           />
         );
       case 'TASK_LIST':
@@ -444,12 +472,12 @@ const App: React.FC = () => {
           <TaskListView 
             onNavigate={setCurrentView} 
             onSelectTask={navigateToExecution} 
-            members={groupMembers}
+            members={safeGroupMembers}
             tasks={groupTasks}
             onCreateTask={handleCreateTask}
             onRefreshTasks={handleRefreshTasks}
             isLoadingTasks={isLoadingTasks}
-            currentUser={currentUser}
+            currentUser={safeCurrentUser}
             activeGroup={activeGroup}
             allGroups={MOCK_GROUPS}
             onSwitchGroup={handleSwitchGroup}
@@ -469,7 +497,7 @@ const App: React.FC = () => {
           <TaskExecutionView 
             taskId={selectedTaskId} 
             tasks={tasks}
-            members={members}
+            members={safeMembers}
             onNavigate={setCurrentView} 
             onUpdateTask={handleUpdateTask}
             onCompleteTask={handleCompleteTask}
@@ -481,9 +509,9 @@ const App: React.FC = () => {
           <DashboardView 
             onNavigate={setCurrentView} 
             onSelectTask={navigateToExecution} 
-            members={groupMembers}
+            members={safeGroupMembers}
             tasks={groupTasks}
-            currentUser={currentUser}
+            currentUser={safeCurrentUser}
             activeGroup={activeGroup}
             onAddMember={(m) => setMembers(prev => [...prev, m])}
             onDeleteMember={(id) => setMembers(prev => prev.filter(m => m.id !== id))}
@@ -496,13 +524,13 @@ const App: React.FC = () => {
           <StatsView 
             onNavigate={setCurrentView} 
             tasks={groupTasks} 
-            currentUser={currentUser} 
+            currentUser={safeCurrentUser}
           />
         );
       case 'HELP':
         return <HelpView onNavigate={setCurrentView} />;
       case 'SETTINGS':
-        return <SettingsView onNavigate={setCurrentView} members={members} currentUser={currentUser} onSwitchUser={handleSwitchUser} onLogout={handleLogout} />;
+        return <SettingsView onNavigate={setCurrentView} members={safeMembers} currentUser={safeCurrentUser} onSwitchUser={handleSwitchUser} onLogout={handleLogout} />;
       default:
         return <LoginView onLoginSuccess={() => setCurrentView('TASK_LIST')} />;
     }
