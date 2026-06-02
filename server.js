@@ -31,6 +31,9 @@ const ALLOWED_TASK_UPDATE_FIELDS = new Set([
   "priority",
   "dueDate",
   "assignee",
+  "assigneeId",
+  "assigneeName",
+  "assigneeSourceKey",
   "department",
   "reminders",
   "color",
@@ -483,7 +486,10 @@ function firestoreTaskToReactTask(doc) {
     status: data.status || (data.completed ? "COMPLETED" : "PENDING"),
     priority: data.priority || "MEDIUM",
     dueDate: data.dueDate || "",
-    assignee: data.assignee || "Web User",
+    assignee: data.assigneeName || data.assignee || "Web User",
+    assigneeId: data.assigneeId || null,
+    assigneeName: data.assigneeName || data.assignee || "",
+    assigneeSourceKey: data.assigneeSourceKey || null,
     department: data.department || "",
     reminders: Array.isArray(data.reminders) ? data.reminders : [],
     createdBy: data.createdBy || data.userId || WEB_SCOPE.createdBy,
@@ -515,9 +521,14 @@ function firestoreMemberToApiMember(doc, scope) {
 function createWebTaskDocument(payload, lineTaskNo, scope = WEB_SCOPE) {
   const allowedPriorities = new Set(["LOW", "MEDIUM", "HIGH"])
   const priority = allowedPriorities.has(payload.priority) ? payload.priority : "MEDIUM"
-  const assignee = typeof payload.assignee === "string" && payload.assignee.trim()
+  const legacyAssignee = typeof payload.assignee === "string" && payload.assignee.trim()
     ? payload.assignee.trim()
     : "Web User"
+  const assigneeName = typeof payload.assigneeName === "string" && payload.assigneeName.trim()
+    ? payload.assigneeName.trim()
+    : legacyAssignee
+  const assigneeId = normalizeOptionalString(payload.assigneeId)
+  const assigneeSourceKey = normalizeOptionalString(payload.assigneeSourceKey)
   const description = typeof payload.description === "string" ? payload.description.trim() : ""
   const dueDate = typeof payload.dueDate === "string" ? payload.dueDate.trim() : ""
   const ticketNo = typeof payload.ticketNo === "string" ? payload.ticketNo.trim() : ""
@@ -540,7 +551,10 @@ function createWebTaskDocument(payload, lineTaskNo, scope = WEB_SCOPE) {
     status: "PENDING",
     priority,
     dueDate,
-    assignee,
+    assignee: assigneeName,
+    assigneeId,
+    assigneeName,
+    assigneeSourceKey,
     department: "",
     reminders: [],
     completedAt: null,
@@ -576,6 +590,14 @@ function assertArrayField(value, field) {
   return value
 }
 
+function normalizeOptionalString(value) {
+  if (value === null) return null
+  if (typeof value !== "string") return null
+
+  const normalizedValue = value.trim()
+  return normalizedValue || null
+}
+
 function buildTaskUpdatePayload(body, currentTask) {
   const updatePayload = {}
 
@@ -594,7 +616,32 @@ function buildTaskUpdatePayload(body, currentTask) {
       continue
     }
 
-    if (["ticketNo", "ticketUrl", "description", "dueDate", "assignee", "department", "color", "notes"].includes(field)) {
+    if (field === "assigneeName") {
+      const assigneeName = assertStringField(value, field).trim()
+      if (assigneeName) {
+        updatePayload.assigneeName = assigneeName
+        updatePayload.assignee = assigneeName
+      }
+      continue
+    }
+
+    if (field === "assignee") {
+      const assignee = assertStringField(value, field).trim()
+      if (assignee) {
+        updatePayload.assignee = assignee
+        updatePayload.assigneeName = assignee
+      }
+      continue
+    }
+
+    if (field === "assigneeId" || field === "assigneeSourceKey") {
+      if (value === null || typeof value === "string") {
+        updatePayload[field] = normalizeOptionalString(value)
+      }
+      continue
+    }
+
+    if (["ticketNo", "ticketUrl", "description", "dueDate", "department", "color", "notes"].includes(field)) {
       updatePayload[field] = assertStringField(value, field)
       continue
     }
