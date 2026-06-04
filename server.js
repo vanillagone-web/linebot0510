@@ -880,6 +880,24 @@ function getLineTaskDueDateLabel(task) {
   return `（${formatLineTaskDueDate(task.dueDate)}）`
 }
 
+function getLineTaskAssigneeLabel(task) {
+  const assigneeName = typeof task.assigneeName === "string" && task.assigneeName.trim()
+    ? task.assigneeName.trim()
+    : typeof task.assignee === "string"
+      ? task.assignee.trim()
+      : ""
+
+  if (!assigneeName) {
+    return ""
+  }
+
+  if (assigneeName === "Web User") {
+    return ""
+  }
+
+  return ` @${assigneeName}`
+}
+
 function parseTaskId(idText) {
   const id = Number(idText)
   return Number.isInteger(id) && id > 0 ? id : null
@@ -957,7 +975,7 @@ async function listTasks(scope) {
     const visibleTasks = activeTasks.slice(0, 20)
     const taskLines = visibleTasks.map((task) => {
       const title = task.content || task.title || ""
-      return `#${task.lineTaskNo} ${title}${getLineTaskDueDateLabel(task)}`
+      return `#${task.lineTaskNo} ${title}${getLineTaskDueDateLabel(task)}${getLineTaskAssigneeLabel(task)}`
     }).join("\n")
     const limitText = activeTasks.length > 20 ? "\n\n僅顯示前 20 筆未完成任務。" : ""
 
