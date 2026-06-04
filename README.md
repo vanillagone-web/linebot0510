@@ -1,12 +1,39 @@
 # Task Manager Bot
 
-React / Vite / TypeScript frontend with a Node.js / Express LINE Bot webhook server.
+React / Vite / TypeScript frontend with a Node.js / Express backend, LINE Bot webhook, LIFF authentication, and Firestore persistence.
 
 Current project status:
 
-- The frontend is still a mock-data prototype. Tasks, members, groups, and chat state are stored in React state and `constants.ts`.
-- `server.js` is currently a LINE webhook echo/smoke test. It verifies LINE webhook requests and replies to text messages with a simple echo response.
-- The frontend and `server.js` are not yet connected through application APIs.
+- The project now runs as a Cloud Run full-stack single service.
+- The same Express service serves the React `dist` frontend, `/api/tasks`, `/api/members`, `/api/auth/line`, `/webhook`, and `/healthz`.
+- LINE Bot supports the basic task flow: `說明`, `新增`, `任務` / `查看任務`, `完成`, and `刪除`.
+- Task data is stored in Firestore using `databaseId: line-todo-bot`.
+- Task scopes are separated by source: `user_`, `group_`, and `room_`.
+- LIFF / Web frontend authentication can verify LINE users with LINE `idToken`.
+- LIFF personal tasks and LINE Bot personal tasks share the same `user_${lineUserId}` scope.
+- Access Code mode remains available as a local or fallback testing mode using `web_default`.
+
+## Currently Enabled Features
+
+- LINE Bot basic task commands.
+- Firestore task persistence.
+- LIFF / LINE `idToken` authentication.
+- Web task CRUD through `/api/tasks`.
+- Search, filters, and due date indicators in the task list.
+- Access Code fallback mode.
+- Cloud Run full-stack serving for the React frontend, APIs, LINE webhook, and health check.
+- Excel export is available, but the reporting flow is still intentionally lightweight.
+
+## Not Yet Formalized / Planned Features
+
+- Formal Members / Groups data model.
+- Dashboard member and permission management.
+- Stats formal reporting.
+- Chat / AI assistant.
+- Google Sheets sync.
+- Group / room LIFF support.
+- Reminder / push notifications.
+- Assignee and member integration are still being consolidated.
 
 ## Prerequisites
 
@@ -16,16 +43,27 @@ Current project status:
 
 ## Environment Variables
 
-Create a local `.env` file for the webhook server:
+Create a local `.env` file for the webhook server and local development:
 
 ```env
 LINE_CHANNEL_ACCESS_TOKEN=
 LINE_CHANNEL_SECRET=
+LINE_LOGIN_CHANNEL_ID=
+WEB_ACCESS_CODE=
+LIFF_URL=
+VITE_LIFF_ID=
+PORT=8080
 ```
 
 Do not commit local secret files. `.env`, `.env.local`, and local environment variants are ignored by Git.
 
-`GEMINI_API_KEY` may still be referenced by the current frontend AI chat prototype, but this first-stage setup does not change the Gemini integration.
+Environment variable notes:
+
+- `PORT` is usually provided automatically by Cloud Run. Local development can use `8080`.
+- `VITE_LIFF_ID` is a Vite build-time frontend environment variable. Updating it as a Cloud Run runtime env var does not change an already-built frontend bundle.
+- AI / Gemini is currently disabled.
+- Do not inject Gemini or AI API keys into the frontend.
+- If AI is restored later, it should go through a backend proxy with permission control, rate limiting, and cost control.
 
 ## Install
 
