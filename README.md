@@ -193,16 +193,12 @@ gcloud auth application-default login
 
 The backend exposes a first-version task API for a future React frontend integration.
 
-Current frontend API scope:
+Task API scope is resolved per request:
 
-```text
-sourceType: web
-sourceId: default
-sourceKey: web_default
-createdBy: web_default
-```
+- LIFF mode: send `Authorization: Bearer <LINE idToken>`, and the API resolves the scope to `user_${lineUserId}`.
+- Access Code fallback mode: send `X-Web-Access-Code`, and the API resolves the scope to `web_default`.
 
-This keeps browser-created tasks separate from LINE Bot tasks, which use `user_${userId}`, `group_${groupId}`, or `room_${roomId}`.
+LINE Bot tasks can also use `user_${userId}`, `group_${groupId}`, or `room_${roomId}` depending on the LINE event source.
 
 Endpoints:
 
@@ -214,7 +210,7 @@ PATCH /api/tasks/:id/complete
 DELETE /api/tasks/:id
 ```
 
-`GET /api/tasks` returns non-deleted `web_default` tasks in React `Task[]` shape:
+`GET /api/tasks` returns non-deleted tasks for the currently resolved scope. The scope can come from a LIFF Bearer token or the Access Code fallback.
 
 ```json
 {
@@ -223,31 +219,44 @@ DELETE /api/tasks/:id
 }
 ```
 
-`POST /api/tasks` creates a `web_default` task. Supported body fields:
+`POST /api/tasks` creates a task in the currently resolved scope. Supported body fields include:
 
 ```json
 {
   "title": "前端測試任務",
+  "ticketNo": "TKT-001",
+  "ticketUrl": "https://example.com/tickets/1",
   "description": "從 API 建立",
   "priority": "MEDIUM",
   "dueDate": "2026-05-11",
-  "assignee": "Web User"
+  "assignee": "Web User",
+  "assigneeId": "m1",
+  "assigneeName": "Web User",
+  "assigneeSourceKey": null,
+  "tags": ["前台"],
+  "notes": "補充說明",
+  "color": "#17cfcf"
 }
 ```
 
 `PATCH /api/tasks/:id/complete` marks a task as completed. The `id` is the Firestore document id.
 
-`PATCH /api/tasks/:id` updates allowed fields on a non-deleted `web_default` task. The `id` is the Firestore document id.
+`PATCH /api/tasks/:id` updates allowed fields on a non-deleted task in the currently resolved scope. The `id` is the Firestore document id.
 
 Allowed update fields:
 
 ```text
 title
+ticketNo
+ticketUrl
 description
 status
 priority
 dueDate
 assignee
+assigneeId
+assigneeName
+assigneeSourceKey
 department
 reminders
 color
@@ -257,6 +266,21 @@ subTasks
 actualHours
 history
 ```
+
+Assignee compatibility notes:
+
+- `assignee` is a legacy string field and must remain available for old data, search, and display fallback.
+- Additive assignee fields are `assigneeId`, `assigneeName`, and `assigneeSourceKey`.
+- The backend tries to keep `assignee = assigneeName` when a structured assignee name is provided.
+- Recommended UI display fallback:
+
+```ts
+assigneeName || assignee || '未指派'
+```
+
+- `assigneeId` may temporarily contain a mock member id such as `m1` or `m2`.
+- `assigneeSourceKey` should only store a formal source key such as `user_...`; it should not store mock ids such as `m1` or `m2`.
+- LINE Bot basic task commands are available. Assignee and member integration are still being consolidated and should remain text-compatible.
 
 Protected fields that the frontend must not update:
 
@@ -294,10 +318,18 @@ curl -X POST http://localhost:8080/api/tasks \
   -H "Content-Type: application/json" \
   -d '{
     "title": "前端測試任務",
+    "ticketNo": "TKT-001",
+    "ticketUrl": "https://example.com/tickets/1",
     "description": "從 API 建立",
     "priority": "MEDIUM",
     "dueDate": "2026-05-11",
-    "assignee": "Web User"
+    "assignee": "Web User",
+    "assigneeId": "m1",
+    "assigneeName": "Web User",
+    "assigneeSourceKey": null,
+    "tags": ["前台"],
+    "notes": "補充說明",
+    "color": "#17cfcf"
   }'
 ```
 
