@@ -382,3 +382,62 @@ This document does not implement:
 - Formal role enforcement.
 - Permission checks.
 
+## 13. 11D-4 Additive Assignee Upgrade Notes
+
+The backend and frontend now support additive assignee fields while keeping the legacy `assignee` field.
+
+Backend-supported additive fields:
+
+- `assigneeId`
+- `assigneeName`
+- `assigneeSourceKey`
+
+Legacy field retained:
+
+```ts
+assignee: string
+```
+
+Compatibility rules:
+
+- Do not delete `assignee`.
+- Do not force migration.
+- Existing tasks with only `assignee` must still render correctly.
+- UI fallback should use:
+
+```ts
+assigneeName || assignee || '未指派'
+```
+
+Write rules:
+
+- Create and edit task flows still send legacy `assignee`.
+- Create and edit task flows also send:
+  - `assigneeId`
+  - `assigneeName`
+  - `assigneeSourceKey`
+- The backend keeps `assignee = assigneeName`.
+
+Mock id protection:
+
+- `assigneeId` may be a mock id such as `m1`, `m2`, or `m3`.
+- `assigneeSourceKey` must not save mock ids.
+- Only `member.id.startsWith('user_')` may be saved to `assigneeSourceKey`.
+
+Subtasks are not upgraded yet:
+
+- `subTasks[].assigneeId` remains unchanged.
+- Do not migrate subtasks in 11D-4.
+- Do not add `subTasks[].assigneeName` yet.
+
+LINE Bot does not support assignee yet:
+
+- Bot-created tasks do not write the new assignee fields.
+- Frontend and backend fallback behavior must continue to support Bot-created tasks.
+
+Validation checklist:
+
+- New tasks in Firestore contain the new additive fields and legacy `assignee`.
+- Old tasks still render correctly.
+- Mock members are not written to `assigneeSourceKey`.
+- Editing a task updates both `assignee` and `assigneeName`.
