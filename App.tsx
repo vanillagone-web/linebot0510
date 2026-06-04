@@ -18,6 +18,9 @@ type CreateTaskPayload = {
   priority: Task['priority'];
   dueDate: string;
   assignee: string;
+  assigneeId?: string | null;
+  assigneeName?: string;
+  assigneeSourceKey?: string | null;
   ticketNo?: string;
   ticketUrl?: string;
   tags?: string[];

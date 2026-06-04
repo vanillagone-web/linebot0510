@@ -30,6 +30,9 @@ export interface Task {
   priority: 'LOW' | 'MEDIUM' | 'HIGH';
   dueDate: string; 
   assignee: string;
+  assigneeId?: string | null;
+  assigneeName?: string;
+  assigneeSourceKey?: string | null;
   department: string;
   snoozeCount?: number;
   snoozeReason?: string;

@@ -14,6 +14,9 @@ interface TaskListViewProps {
     priority: Task['priority'];
     dueDate: string;
     assignee: string;
+    assigneeId?: string | null;
+    assigneeName?: string;
+    assigneeSourceKey?: string | null;
     ticketNo?: string;
     ticketUrl?: string;
     tags?: string[];
@@ -90,6 +93,12 @@ const hasNoDueDate = (value?: string): boolean => !value?.trim();
 const formatAssigneeName = (assignee?: string | null) => {
   const name = typeof assignee === 'string' ? assignee.trim() : '';
   return name || '未指派';
+};
+
+const getAssigneeSourceKey = (memberId?: string | null) => {
+  return typeof memberId === 'string' && memberId.startsWith('user_')
+    ? memberId
+    : null;
 };
 
 const getDueDateBadge = (task: Task) => {
@@ -297,6 +306,9 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
         priority: newTask.priority,
         dueDate: newTask.dueDate,
         assignee: assignedMember.name,
+        assigneeId: assignedMember.id,
+        assigneeName: assignedMember.name,
+        assigneeSourceKey: getAssigneeSourceKey(assignedMember.id),
         ticketNo: newTask.ticketNo,
         ticketUrl: newTask.ticketUrl,
         tags,
@@ -494,7 +506,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                     </div>
                     <p className={`text-[#111818] dark:text-white font-bold truncate text-sm ${task.status === 'COMPLETED' ? 'line-through opacity-50' : ''}`}>{task.title}</p>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[9px] font-black uppercase" style={{ color: taskBaseColor }}>@{formatAssigneeName(task.assignee)}</span>
+                      <span className="text-[9px] font-black uppercase" style={{ color: taskBaseColor }}>@{formatAssigneeName(task.assigneeName || task.assignee)}</span>
                       {task.tags && task.tags.length > 0 && (
                         <>
                           <span className="size-1 bg-zinc-300 dark:bg-zinc-600 rounded-full" />

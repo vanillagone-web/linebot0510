@@ -19,9 +19,15 @@ const formatAssigneeName = (assignee?: string | null) => {
   return name || '未指派';
 };
 
+const getAssigneeSourceKey = (memberId?: string | null) => {
+  return typeof memberId === 'string' && memberId.startsWith('user_')
+    ? memberId
+    : null;
+};
+
 const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, members, onNavigate, onUpdateTask, onCompleteTask, onDeleteTask }) => {
   const task = tasks.find(t => t.id === taskId) || tasks[0];
-  const assigneeName = formatAssigneeName(task.assignee);
+  const assigneeName = formatAssigneeName(task.assigneeName || task.assignee);
   
   // 計算累積工時秒數 (將 actualHours 轉回秒數)
   const initialSeconds = Math.round((task.actualHours || 0) * 3600);
@@ -151,7 +157,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     setEditDescription(task.description || '');
     setEditNotes(task.notes || '');
     setEditDueDate(task.dueDate || '');
-    setEditAssignee(task.assignee || members[0]?.name || '');
+    setEditAssignee(task.assigneeName || task.assignee || members[0]?.name || '');
     setEditPriority(task.priority || 'MEDIUM');
     setEditTags(task.tags || []);
     setEditTagInput('');
@@ -194,6 +200,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
       .map(tag => tag.trim())
       .filter(Boolean);
     const tags = Array.from(new Set([...editTags, ...pendingTags]));
+    const selectedMember = members.find(member => member.name === editAssignee);
 
     setIsSavingTaskEdit(true);
     setEditError(null);
@@ -206,6 +213,11 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
       notes: editNotes,
       dueDate: editDueDate,
       assignee: editAssignee,
+      assigneeName: editAssignee,
+      assigneeId: selectedMember?.id || task.assigneeId || null,
+      assigneeSourceKey: selectedMember
+        ? getAssigneeSourceKey(selectedMember.id)
+        : task.assigneeSourceKey || null,
       priority: editPriority,
       tags,
       color: editColor,
