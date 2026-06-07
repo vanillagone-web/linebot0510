@@ -408,7 +408,7 @@ The LINE webhook URL should be:
 https://YOUR_CLOUD_RUN_URL/webhook
 ```
 
-This project does not need a Dockerfile for the current server-only deployment. Use Google Cloud buildpacks from the source code.
+This project does not need a Dockerfile for the current Cloud Run buildpacks deployment. Use Google Cloud buildpacks from the source code.
 
 Cloud Run buildpacks run `gcp-build`, which runs:
 
@@ -515,6 +515,8 @@ Data scopes:
 - The frontend currently uses `web_default`.
 - The LINE Bot uses `user_xxx`, `group_xxx`, and `room_xxx`.
 - Frontend tasks and LINE Bot tasks are currently separated by scope.
+
+Historical note: this describes the v0.1.0 state. Later LIFF user-scope stages changed personal LIFF tasks to share `user_${lineUserId}` with the LINE Bot.
 
 Completed in this version:
 
@@ -701,6 +703,8 @@ Important scope note:
 - Do not store LINE `idToken` in `localStorage`.
 - Do not store LINE auth results long-term in `localStorage`.
 
+Historical note: this was true for 9B-2 only. Stage 9C-2 later switched task API requests to use `Authorization: Bearer <LINE idToken>` when LIFF auth succeeds.
+
 Local testing:
 
 ```env
@@ -730,6 +734,8 @@ Open the LIFF URL in the LINE app. The expected flow is:
 4. The frontend calls `POST /api/auth/line`.
 5. The UI displays the LINE display name and `user_${lineUserId}` scope.
 6. Access Code is still required for `/api/tasks`.
+
+Historical note: this Access Code requirement describes the 9B-2 stage. Later 9C-2 task requests use the LINE Bearer token when LIFF authentication succeeds.
 
 Cloud Run environment variables:
 
@@ -790,6 +796,8 @@ Protected task routes:
 - `DELETE /api/tasks/:id`
 
 This stage does not modify `/webhook`, LINE Bot commands, Firestore collections, frontend UI, sessions, or JWTs.
+
+Stage-specific note: this statement only describes the 9C-1 scope and should not be read as the current global LINE Bot feature status.
 
 Local curl tests:
 
@@ -1065,6 +1073,9 @@ Known limitation:
 - Access Code mode remains available and uses `web_default`.
 - Group and room task scopes are still only supported by the LINE Bot side.
 - LIFF group scope is deferred.
+- LINE Bot now supports a first-version text assignee command: `指派 任務編號 負責人`.
+- The formal `members` collection remains design/manual-test only; member auto-create and group / room validation are not enabled.
+- Google Sheets sync and AI Chat remain disabled.
 - Cloud Run runs this app as a full-stack single service.
 - The LIFF endpoint should point to the current Cloud Run `status.url`.
 - `VITE_LIFF_ID` is a build-time environment variable. Make sure it is available when Vite builds the frontend.
@@ -1076,7 +1087,7 @@ Known limitation:
 2. Then consider these follow-up areas:
    - Group / room LIFF scope.
    - Splitting `App.tsx` and `server.js` into smaller modules.
-   - Formal `members` / `groups` data model.
+   - Manual validation of the formal `members` collection design before implementing member auto-create or group / room validation.
    - AI backend proxy.
    - Reminder scheduling and notifications.
 
