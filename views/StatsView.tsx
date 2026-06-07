@@ -69,8 +69,8 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
       .slice(-6)
       .map(t => ({
         name: t.title.substring(0, 4),
-        estimated: t.estimatedHours || 5,
-        actual: t.actualHours || Math.random() * 8,
+        estimated: t.estimatedHours ?? 0,
+        actual: t.actualHours ?? 0,
       }));
   }, [filteredTasks]);
 
