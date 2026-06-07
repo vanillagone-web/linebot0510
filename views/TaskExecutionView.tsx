@@ -262,7 +262,8 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
 
   const handleAddSubTask = async () => {
     if (!newSubTaskTitle.trim()) return;
-    const primaryAssignee = members.find(m => m.name === task.assignee);
+    const taskAssigneeName = (task.assigneeName || task.assignee || '').trim();
+    const primaryAssignee = members.find(m => m.name === taskAssigneeName);
     const defaultAssigneeId = primaryAssignee?.id || members[0]?.id;
     const newSub: SubTask = {
       id: Date.now().toString(),

@@ -16,6 +16,11 @@ interface DashboardViewProps {
   onUpdateMember: (memberId: string, updates: Partial<Member>) => void;
 }
 
+const getTaskAssigneeName = (task: Task) => {
+  const name = task.assigneeName || task.assignee || '';
+  return name.trim() || '未指派';
+};
+
 const DashboardView: React.FC<DashboardViewProps> = ({ 
   onNavigate, 
   onSelectTask, 
@@ -68,7 +73,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="space-y-4">
           {members.map(member => {
             // Admin 特有功能：尋找成員正在處理的任務
-            const activeTask = isAdmin ? tasks.find(t => t.assignee === member.name && t.status === 'IN_PROGRESS') : null;
+            const activeTask = isAdmin
+              ? tasks.find(t => getTaskAssigneeName(t) === member.name && t.status === 'IN_PROGRESS')
+              : null;
 
             return (
               <div key={member.id} className="bg-white dark:bg-zinc-900 p-5 rounded-[32px] flex flex-col gap-4 border border-gray-50 dark:border-zinc-800 shadow-sm transition-all group">
