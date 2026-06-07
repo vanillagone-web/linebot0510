@@ -10,9 +10,11 @@ The current task assignment model is intentionally simple and should be treated 
 - `subTasks[].assigneeId` exists, but the value may be a mock member id such as `m1` or `m2`.
 - There is currently no formal `members` collection.
 - There is currently no formal `groups` collection.
-- There are currently no members or groups API endpoints.
+- `GET /api/members` exists as a first read-only API, but formal `members` collection data has not been created yet.
 - `DashboardView`, `SettingsView`, `StatsView`, `TaskListView`, and `TaskExecutionView` still have mock member dependencies.
-- LINE Bot tasks currently do not support assignee commands or assignee selection.
+- LINE Bot task lists can display assignee labels.
+- LINE Bot supports the minimal `指派 任務編號 負責人` text command.
+- LINE Bot assignee support is text-only and does not perform formal member lookup.
 
 ## 2. Design Goals
 
@@ -236,18 +238,18 @@ Future group work should consider:
 
 ## 8. Future API Planning
 
-This section is design-only. No API should be implemented in 11D-2A.
+This section started as design-only in 11D-2A. Since then, `GET /api/members` has been added as a first read-only API, while write APIs and formal member data remain future work.
 
-Possible future endpoints:
+Current and possible future endpoints:
 
 ```txt
-GET /api/members
+GET /api/members // implemented, read-only
 POST /api/members
 PATCH /api/members/:id
 GET /api/groups
 ```
 
-The first practical endpoint should likely be:
+The first practical endpoint is:
 
 ```txt
 GET /api/members
@@ -327,20 +329,33 @@ Recommended member lookup behavior:
 
 ### 11D-5: LINE Bot Assignee Commands
 
-Possible commands:
+Implemented first-version command:
 
 ```txt
 指派 3 小語
-負責人 3 小語
 ```
 
-Possible LINE task list display:
+Implemented LINE task list display:
 
 ```txt
-#3 修首頁 bug（負責：小語）
+#3 修首頁 bug（今日到期） @小語
 ```
 
-This should happen only after the member model is stable.
+The current implementation saves only free-form assignee text:
+
+```js
+{
+  assignee: assigneeName,
+  assigneeName,
+  assigneeId: null,
+  assigneeSourceKey: null,
+  updatedAt
+}
+```
+
+It does not perform member lookup, does not query a formal `members` collection, and does not validate group or room membership.
+
+Future work may add formal member lookup after the member model is stable.
 
 ### 11E: Group LIFF And Group Members
 
@@ -356,7 +371,7 @@ Key risks:
 - Breaking old tasks that only have `assignee`.
 - Mixing mock ids such as `m1` with formal ids such as `user_Uxxxxxxxx`.
 - Mixing personal task members with group task members.
-- Assuming LINE Bot tasks have assignee data when they currently do not.
+- Assuming LINE Bot assignees are formal members when they are currently text-only.
 - Introducing a role and permission model too early.
 - Designing groups before LIFF group scope is clear.
 
@@ -374,10 +389,10 @@ This document does not implement:
 
 - Firestore `members` collection.
 - Firestore `groups` collection.
-- Members API.
+- Members write APIs.
 - Groups API.
 - Task schema migration.
-- LINE Bot assignee commands.
+- Formal LINE Bot member lookup.
 - Group LIFF support.
 - Formal role enforcement.
 - Permission checks.
@@ -430,10 +445,14 @@ Subtasks are not upgraded yet:
 - Do not migrate subtasks in 11D-4.
 - Do not add `subTasks[].assigneeName` yet.
 
-LINE Bot does not support assignee yet:
+LINE Bot assignee first version is implemented:
 
-- Bot-created tasks do not write the new assignee fields.
-- Frontend and backend fallback behavior must continue to support Bot-created tasks.
+- Task lists can display `@負責人`.
+- The minimal `指派 任務編號 負責人` command saves free-form text.
+- The command writes `assignee` and `assigneeName`.
+- The command writes `assigneeId: null` and `assigneeSourceKey: null`.
+- Bot-created tasks without assignee fields must still be supported by frontend and backend fallback behavior.
+- Formal member lookup, group / room validation, and subtask assignee additive upgrade remain future work.
 
 Validation checklist:
 
