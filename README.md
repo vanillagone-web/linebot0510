@@ -6,7 +6,7 @@ Current project status:
 
 - The project now runs as a Cloud Run full-stack single service.
 - The same Express service serves the React `dist` frontend, `/api/tasks`, `/api/members`, `/api/auth/line`, `/webhook`, and `/healthz`.
-- LINE Bot supports the basic task flow: `說明`, `新增`, `任務` / `查看任務`, `完成`, and `刪除`.
+- LINE Bot supports the basic task flow: `說明`, `新增`, `任務` / `查看任務`, `完成`, `刪除`, and `指派`.
 - Task data is stored in Firestore using `databaseId: line-todo-bot`.
 - Task scopes are separated by source: `user_`, `group_`, and `room_`.
 - LIFF / Web frontend authentication can verify LINE users with LINE `idToken`.
@@ -15,7 +15,7 @@ Current project status:
 
 ## Currently Enabled Features
 
-- LINE Bot basic task commands.
+- LINE Bot basic task commands, including first-version text assignee assignment.
 - Firestore task persistence.
 - LIFF / LINE `idToken` authentication.
 - Web task CRUD through `/api/tasks`.
@@ -121,6 +121,7 @@ Available commands:
 查看任務
 完成 任務編號
 刪除 任務編號
+指派 任務編號 負責人
 說明
 ```
 
@@ -134,6 +135,7 @@ Examples:
 查看任務
 完成 1
 刪除 2
+指派 1 小語
 ```
 
 Command behavior:
@@ -142,7 +144,12 @@ Command behavior:
 - `任務` and `查看任務` show incomplete tasks.
 - `完成 任務編號` marks an incomplete task as completed.
 - `刪除 任務編號` deletes a task.
+- `指派 任務編號 負責人` assigns a text assignee to a task in the current LINE scope.
 - `說明` shows the command list.
+
+The first-version assignee command saves free-form text only. It does not perform formal member lookup or group / room member validation.
+
+Task list replies display assignees when available, for example `#1 買牛奶（今日到期） @小語`.
 - Unknown commands ask the user to type `說明`.
 
 The task list shows only the first 20 incomplete tasks.
