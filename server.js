@@ -775,6 +775,7 @@ function getHelpText() {
 查看任務
 完成 任務編號
 刪除 任務編號
+指派 任務編號 負責人
 說明`
 }
 
@@ -1073,6 +1074,58 @@ ${task.content}`
   }
 }
 
+async function assignTask(idText, assigneeText, scope) {
+  const id = parseTaskId(idText)
+  const assigneeName = typeof assigneeText === "string" ? assigneeText.trim() : ""
+
+  if (!id) {
+    return `請輸入有效的任務編號。
+
+範例：
+指派 1 小語`
+  }
+
+  if (!assigneeName) {
+    return `請輸入負責人名稱。
+
+範例：
+指派 1 小語`
+  }
+
+  try {
+    const snapshot = await db.collection("tasks")
+      .where("sourceKey", "==", scope.sourceKey)
+      .where("lineTaskNo", "==", id)
+      .where("deletedAt", "==", null)
+      .limit(1)
+      .get()
+
+    if (snapshot.empty) {
+      return `找不到任務 #${id}。
+
+請輸入「任務」查看目前未完成任務。`
+    }
+
+    const taskDoc = snapshot.docs[0]
+    const task = taskDoc.data()
+    const title = task.content || task.title || ""
+
+    await taskDoc.ref.update({
+      assignee: assigneeName,
+      assigneeName,
+      assigneeId: null,
+      assigneeSourceKey: null,
+      updatedAt: FieldValue.serverTimestamp()
+    })
+
+    return `已指派任務 #${task.lineTaskNo} 給 ${assigneeName}
+${title}`
+  } catch (err) {
+    console.error("Firestore assignTask failed", err)
+    return "任務系統暫時發生問題，請稍後再試。"
+  }
+}
+
 async function handleTextCommand(text, scope) {
   if (text === "說明") {
     return getHelpText()
@@ -1095,6 +1148,19 @@ async function handleTextCommand(text, scope) {
   if (text.startsWith("刪除 ")) {
     const idText = text.slice("刪除 ".length).trim()
     return await deleteTask(idText, scope)
+  }
+
+  if (text.startsWith("指派 ")) {
+    const commandText = text.slice("指派 ".length).trim()
+    const firstSpaceIndex = commandText.search(/\s/)
+
+    if (firstSpaceIndex === -1) {
+      return await assignTask(commandText, "", scope)
+    }
+
+    const idText = commandText.slice(0, firstSpaceIndex).trim()
+    const assigneeText = commandText.slice(firstSpaceIndex).trim()
+    return await assignTask(idText, assigneeText, scope)
   }
 
   return `我目前看不懂這個指令。
