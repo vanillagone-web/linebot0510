@@ -82,10 +82,18 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
   const handleExportExcel = () => {
     const exportData = tasks.map(t => ({ 
       '任務ID': t.id, 
-      '工單編號': t.ticketNo, 
+      '工單編號': t.ticketNo || '', 
       '標題': t.title, 
       '負責人': getTaskAssigneeName(t), 
       '狀態': t.status, 
+      '優先級': t.priority,
+      '截止日期': t.dueDate,
+      '工單URL': t.ticketUrl || '',
+      '標籤': (t.tags || []).join(', '),
+      '備註': t.notes || '',
+      '預估工時': t.estimatedHours ?? 0,
+      '實際工時': t.actualHours ?? 0,
+      '建立時間': t.createdAt,
       '最後更新': t.updatedAt 
     }));
     const worksheet = XLSX.utils.json_to_sheet(exportData);
