@@ -218,6 +218,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
         task.title,
         task.description,
         task.ticketNo,
+        task.assigneeName,
         task.assignee,
         task.notes,
         ...(task.tags || [])
