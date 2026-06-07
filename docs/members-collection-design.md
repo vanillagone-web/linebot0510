@@ -236,3 +236,184 @@ This stage does not do any of the following:
 - Introducing group or room concepts too early may make the permission model unstable.
 - Removing mock fallback directly may break create-task and edit-task flows.
 - `role` should currently be treated as UI display or future planning data, not as backend security authorization.
+
+## 13. Members-1B Manual Firestore Test Checklist
+
+This is a future manual verification checklist.
+
+Important boundaries:
+
+- This stage does not create Firestore data.
+- Do not run this checklist until Cloud Run env, LIFF token, and Firestore databaseId are confirmed.
+- This checklist is for personal `user_${lineUserId}` scope only.
+- Group / room members are out of scope.
+
+The goal is to verify this path:
+
+```txt
+Firestore members document
+-> /api/members
+-> App.tsx normalize
+-> frontend assignee select
+-> task additive assignee fields
+-> LINE Bot list display
+```
+
+### 13.1 Confirm LINE User Identity
+
+Confirm the target LINE user identity:
+
+```txt
+lineUserId: Uxxxxxxxx
+sourceKey: user_Uxxxxxxxx
+```
+
+Possible sources:
+
+- The LIFF UI display showing `user_Uxxxxxxxx`.
+- The `/api/auth/line` verification result containing `lineUserId`.
+
+### 13.2 Manually Create Firestore Member Document
+
+Collection:
+
+```txt
+members
+```
+
+Document id:
+
+```txt
+user_Uxxxxxxxx
+```
+
+The document id must match the personal `sourceKey`.
+
+### 13.3 Suggested Document Data
+
+```js
+{
+  displayName: "RINKA",
+  lineUserId: "Uxxxxxxxx",
+  pictureUrl: "https://...",
+  sourceKey: "user_Uxxxxxxxx",
+  role: "MEMBER",
+  isActive: true,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp()
+}
+```
+
+If the Firestore Console is not convenient for `serverTimestamp()`, use Timestamp fields or the current time for manual testing.
+
+This is only a manual testing substitute. It does not define runtime write rules.
+
+### 13.4 Verify `/api/members`
+
+Use a LIFF Bearer token:
+
+```bash
+curl -H "Authorization: Bearer LINE_ID_TOKEN" \
+  https://YOUR_CLOUD_RUN_URL/api/members
+```
+
+Expected response:
+
+```json
+{
+  "ok": true,
+  "members": [
+    {
+      "id": "user_Uxxxxxxxx",
+      "displayName": "RINKA",
+      "pictureUrl": "https://...",
+      "lineUserId": "Uxxxxxxxx",
+      "sourceKey": "user_Uxxxxxxxx",
+      "role": "MEMBER",
+      "isActive": true
+    }
+  ]
+}
+```
+
+### 13.5 Verify Frontend Member Source
+
+After opening LIFF, the frontend should show that the member source is API.
+
+If the frontend still falls back to mock members, check:
+
+- Whether the document id is `user_Uxxxxxxxx`.
+- Whether `sourceKey` is `user_Uxxxxxxxx`.
+- Whether the LIFF user is the same LINE user.
+- Whether `/api/members` actually returns a members array.
+- Whether `isActive` is not `false`.
+
+### 13.6 Verify Task Assignee Select
+
+The create-task modal assignee select should show the API member, for example:
+
+```txt
+RINKA
+```
+
+If it does not appear, possible causes include:
+
+- `/api/members` returned an empty array.
+- The frontend fell back to mock members.
+- The API member was normalized but not passed into the relevant view.
+
+### 13.7 Verify Created Task Assignee Fields
+
+After creating a task, the Firestore `tasks` document should contain:
+
+```js
+{
+  assignee: "RINKA",
+  assigneeName: "RINKA",
+  assigneeId: "user_Uxxxxxxxx",
+  assigneeSourceKey: "user_Uxxxxxxxx"
+}
+```
+
+This is the most important verification point.
+
+Because the formal API member id starts with `user_`, `assigneeSourceKey` can be saved.
+
+### 13.8 Verify LINE Bot List Display
+
+In the personal LINE Bot chat, send:
+
+```txt
+任務
+```
+
+Expected task list display:
+
+```txt
+#1 任務名稱（今日到期） @RINKA
+```
+
+### 13.9 Verify Fallback Behavior
+
+To test fallback behavior temporarily, use intentionally incorrect data, such as:
+
+- Change the member document `sourceKey` to an incorrect value.
+- Or set `isActive: false`.
+
+Expected behavior:
+
+- `/api/members` returns an empty array or no active members.
+- The frontend falls back to `MOCK_MEMBERS`.
+- Task CRUD should not break.
+
+Restore the test data after verification.
+
+### 13.10 Warnings
+
+- Do not create `members/web_default` as a formal identity.
+- Do not use mock ids such as `m1` or `m2` as formal member document ids.
+- Do not write mock ids into `assigneeSourceKey`.
+- `role` is not currently a backend authorization source.
+- Do not implement auto-create in this stage.
+- Do not create group / room members in this stage.
+- Do not remove the `MOCK_MEMBERS` fallback.
