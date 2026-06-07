@@ -8,26 +8,59 @@
   - `assigneeSourceKey`
 - The frontend create and edit task flows already send additive assignee fields.
 - The legacy `assignee` field is still retained.
-- LINE Bot currently does not support assignee commands.
+- LINE Bot assignee text-command first version is implemented.
+- LINE Bot task lists can display task assignees.
 - Bot-created tasks currently do not write the new assignee fields.
-- Bot task lists currently do not display task assignees.
 - A formal `members` collection has not been created yet.
 - `GET /api/members` will usually return an empty array at this stage.
-- This stage does not perform member lookup.
+- The implemented LINE Bot assignee flow does not perform member lookup.
 
-## 2. Design Goals
+## 2. Current Implementation Status
 
-- Allow LINE Bot to display task assignees in the future.
-- Allow LINE Bot to assign tasks by text in the future.
-- The first version should save only the text name entered by the user.
+- 11D-5A: Command specification document is complete.
+- 11D-5B: LINE Bot task list assignee display is complete.
+- 11D-5C: Minimal LINE Bot `指派 任務編號 負責人` command is complete.
+- 11D-5D: Formal member lookup, `members` collection integration, and group/room member validation remain future work.
+
+## 3. Implemented Behavior
+
+- `listTasks(scope)` appends `@負責人` to each task line when the task has a displayable assignee.
+- `getLineTaskAssigneeLabel(task)` uses this fallback order:
+  - `assigneeName`
+  - `assignee`
+  - no label
+- Empty assignee values are not displayed.
+- `"Web User"` is hidden and does not render as `@Web User`.
+- `assignTask(idText, assigneeText, scope)` assigns a task within the current `scope.sourceKey`.
+- The Firestore query for assignment includes:
+  - `sourceKey`
+  - `lineTaskNo`
+  - `deletedAt == null`
+- Assignment does not cross scopes.
+- Assignment does not perform member lookup.
+- `getHelpText()` includes `指派 任務編號 負責人`.
+
+Implemented task list format:
+
+```txt
+#1 買牛奶（今日到期） @小語
+#2 修 bug（已逾期） @RINKA
+#3 整理資料（無截止日期）
+```
+
+## 4. Design Goals
+
+- Allow LINE Bot to display task assignees without requiring a formal member system.
+- Allow LINE Bot to assign tasks by text.
+- The first version saves only the text name entered by the user.
 - Do not pretend that a formal member system is complete.
 - Do not write free-form names into `assigneeSourceKey`.
 - Do not perform group or room member lookup.
 - Do not affect existing add, complete, or delete task commands.
 
-## 3. Suggested Command Format
+## 5. Command Format
 
-First version:
+Implemented first version:
 
 ```txt
 指派 任務編號 負責人
@@ -45,9 +78,9 @@ First-version limits:
 - Multiple assignees are not supported.
 - Fuzzy name matching is not supported.
 - Formal member id lookup is not supported.
-- The optional alias `負責人` can be considered later, but should not be implemented in the first version.
+- The optional alias `負責人` can be considered later, but is not included in the first version.
 
-## 4. Parsing Rules
+## 6. Parsing Rules
 
 - Match text that starts with `指派 `.
 - Remove the `指派 ` prefix.
@@ -58,7 +91,7 @@ First-version limits:
 - `assigneeText.trim()` must be non-empty.
 - Save `assigneeText` as free-form text.
 
-## 5. Error Reply Specification
+## 7. Error Reply Specification
 
 Invalid task id:
 
@@ -93,11 +126,11 @@ Success:
 買牛奶
 ```
 
-## 6. Firestore Update Rules
+## 8. Firestore Update Rules
 
-The first version does not perform member lookup. It saves only text.
+The implemented first version does not perform member lookup. It saves only text.
 
-Recommended update payload:
+Update payload:
 
 ```js
 {
@@ -105,7 +138,7 @@ Recommended update payload:
   assigneeName,
   assigneeId: null,
   assigneeSourceKey: null,
-  updatedAt
+  updatedAt: FieldValue.serverTimestamp()
 }
 ```
 
@@ -117,17 +150,7 @@ Rules:
 - Do not write free-form text into `assigneeSourceKey`.
 - Do not treat a display name as a formal member id.
 
-## 7. Task List Assignee Display Specification
-
-Planned for 11D-5B.
-
-Current format:
-
-```txt
-#1 買牛奶（今日到期）
-```
-
-Suggested format:
+## 9. Task List Assignee Display
 
 ```txt
 #1 買牛奶（今日到期） @小語
@@ -138,7 +161,7 @@ If the task has no assignee:
 - The first version should not display `@未指派`.
 - This keeps LINE task lists less noisy.
 
-Possible helper:
+Implemented helper:
 
 ```js
 getLineTaskAssigneeLabel(task)
@@ -146,13 +169,14 @@ getLineTaskAssigneeLabel(task)
 
 Rules:
 
-- Use `task.assigneeName || task.assignee || ""`.
+- Prefer `task.assigneeName`.
+- Fall back to legacy `task.assignee`.
 - If the result is an empty string, do not display a label.
-- Whether to hide `Web User` should be decided before implementation.
+- If the result is `"Web User"`, do not display a label.
 
-## 8. Why Member Lookup Is Not Included Yet
+## 10. Why Member Lookup Is Not Included Yet
 
-Member lookup is intentionally excluded from the first version.
+Member lookup is intentionally excluded from the implemented first version.
 
 Reasons:
 
@@ -163,49 +187,56 @@ Reasons:
 - User-entered names may contain typos.
 - Saving text-only assignees is the safest first step.
 
-## 9. Phased Rollout
+## 11. Phased Rollout
 
-### 11D-5A: Command Specification Document
+### 11D-5A: Command Specification Document - Complete
 
 - Add `docs/line-bot-assignee-command.md`.
 - Do not modify runtime code.
 
-### 11D-5B: Bot Task List Shows Assignee
+### 11D-5B: Bot Task List Shows Assignee - Complete
 
 - Modify only `server.js` `listTasks` display.
 - Do not add new commands.
+- Display fallback is `assigneeName -> assignee -> no label`.
+- Hide `"Web User"`.
 
-### 11D-5C: Minimal Bot Assign Command
+### 11D-5C: Minimal Bot Assign Command - Complete
 
 - Add `assignTask`.
 - Update `handleTextCommand` to support `指派`.
 - Save only free-form text.
+- Do not perform member lookup.
 
-### 11D-5D: Formal Member Lookup
+### 11D-5D: Formal Member Lookup - Future Work
 
 - Wait until the `members` collection and group members are stable.
 - Add member lookup only after scope and ambiguity rules are defined.
+- Add group/room member validation only after group/room LIFF and membership rules are designed.
 
-## 10. Non-Goals
+## 12. Non-Goals
 
-This stage does not do any of the following:
+The implemented first version still does not do any of the following:
 
-- Modify `server.js`.
-- Modify LINE Bot commands.
+- Perform formal member lookup.
+- Query a formal `members` collection.
+- Validate group or room membership.
+- Support multiple assignees.
+- Support fuzzy name matching.
+- Support unassigning a task.
+- Support the `負責人` alias command.
+- Upgrade subtask assignee schema.
 - Modify `/api/tasks`.
 - Modify `/api/members`.
 - Modify Firestore schema.
 - Create a `members` collection.
-- Perform member lookup.
-- Implement group or room members.
+- Perform Firestore migration.
 - Modify the frontend.
-- Deploy.
 
-## 11. Risks
+## 13. Risks
 
 - Users may type assignee names incorrectly.
 - Names may be duplicated.
 - The assignee may not be a member of the group.
-- Showing `@Web User` may add noise to LINE task lists.
+- Hiding `@Web User` reduces noise, but tasks created through web fallback may appear unassigned in LINE lists.
 - Future formal member lookup must keep text assignee compatibility.
-
