@@ -12,6 +12,7 @@ interface StatsViewProps {
 }
 
 const DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxBidXkZO-w8ci7Nc_y2ohDGZCXFZEu45Ors66cpCCQa6lfR8WHuHNdYx826AcST5Qk/exec";
+const IS_GOOGLE_SHEETS_SYNC_ENABLED = false;
 const COLORS = ['#17cfcf', '#8B5CF6', '#F59E0B', '#10B981', '#E78278', '#3B82F6', '#EC4899'];
 
 type TimeRange = 'WEEK' | 'MONTH' | 'ALL';
@@ -105,6 +106,12 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
   };
 
   const handleSyncToGoogleSheets = async () => {
+    if (!IS_GOOGLE_SHEETS_SYNC_ENABLED) {
+      addLog("Google Sheets 同步目前暫未啟用。", "info");
+      setActiveTab('SYNC_LOG');
+      return;
+    }
+
     if (!isAdmin || tasks.length === 0) return;
     setIsSyncing(true);
     setActiveTab('SYNC_LOG');
