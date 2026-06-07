@@ -16,6 +16,11 @@ const COLORS = ['#17cfcf', '#8B5CF6', '#F59E0B', '#10B981', '#E78278', '#3B82F6'
 
 type TimeRange = 'WEEK' | 'MONTH' | 'ALL';
 
+const getTaskAssigneeName = (task: Task) => {
+  const name = task.assigneeName || task.assignee || '';
+  return name.trim() || '未指派';
+};
+
 const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'TIME_ANALYSIS' | 'SYNC_LOG'>('OVERVIEW');
   const [timeRange] = useState<TimeRange>('ALL');
@@ -79,7 +84,7 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
       '任務ID': t.id, 
       '工單編號': t.ticketNo, 
       '標題': t.title, 
-      '負責人': t.assignee, 
+      '負責人': getTaskAssigneeName(t), 
       '狀態': t.status, 
       '最後更新': t.updatedAt 
     }));
@@ -106,7 +111,7 @@ const StatsView: React.FC<StatsViewProps> = ({ onNavigate, tasks, currentUser })
           group_id: t.groupId,
           ticket_no: t.ticketNo || "", 
           title: t.title,
-          assignee: t.assignee,
+          assignee: getTaskAssigneeName(t),
           status: t.status,
           priority: t.priority,
           due_date: t.dueDate,

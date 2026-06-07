@@ -49,6 +49,11 @@ const parseTaskDueDate = (dueDate: string | undefined, fallbackYear: number): Da
   return null;
 };
 
+const getTaskAssigneeName = (task: Task) => {
+  const name = task.assigneeName || task.assignee || '';
+  return name.trim() || '未指派';
+};
+
 const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, onCompleteTask, tasks, initialDate }) => {
   const [currentDate, setCurrentDate] = useState(initialDate || new Date());
   const [selectedDate, setSelectedDate] = useState(initialDate || new Date());
@@ -188,7 +193,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ onNavigate, onSelectTask, o
                       <div className="flex-1 min-w-0 pr-4" onClick={() => onSelectTask(item.task.id)}>
                         <h4 className="font-black text-zinc-900 dark:text-white text-base truncate cursor-pointer hover:text-primary transition-colors">{item.task.title}</h4>
                         <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: taskBaseColor }}>
-                          @{item.task.assignee} • {item.task.priority}
+                          @{getTaskAssigneeName(item.task)} • {item.task.priority}
                         </p>
                       </div>
                       <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase ${item.task.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : 'bg-white/80 dark:bg-black/20 text-zinc-600'}`}>
