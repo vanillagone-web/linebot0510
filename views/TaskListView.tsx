@@ -519,7 +519,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                     </div>
                   </div>
                   <div className="size-9 rounded-2xl bg-white/60 dark:bg-black/20 flex items-center justify-center text-primary-green transition-all self-center shadow-sm">
-                    <span className="material-symbols-outlined text-xl font-black" style={{ color: taskBaseColor }}>play_arrow</span>
+                    <span className="material-symbols-outlined text-xl font-black" style={{ color: taskBaseColor }}>chevron_right</span>
                   </div>
                 </div>
 

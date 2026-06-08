@@ -363,8 +363,8 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
            <div className="size-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-2xl animate-in zoom-in duration-500 delay-100">
              <span className="material-symbols-outlined text-[#06C755] text-6xl fill-icon">check_circle</span>
            </div>
-           <h3 className="text-2xl font-black text-white">任務已完美結案！</h3>
-           <p className="text-white/80 text-sm mt-2 font-bold tracking-widest uppercase">系統同步通知已發出</p>
+           <h3 className="text-2xl font-black text-white">任務已完成</h3>
+           <p className="text-white/80 text-sm mt-2 font-bold tracking-widest uppercase">任務狀態已更新</p>
         </div>
       )}
 
