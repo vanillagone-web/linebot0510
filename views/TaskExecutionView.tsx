@@ -153,6 +153,9 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const handleDeleteTask = async () => {
     if (isDeletingTask) return;
 
+    const confirmed = window.confirm(`確定要刪除「${task.title}」嗎？此操作無法復原。`);
+    if (!confirmed) return;
+
     setIsDeletingTask(true);
 
     try {
