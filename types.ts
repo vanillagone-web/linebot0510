@@ -18,6 +18,8 @@ export interface SubTask {
   title: string;
   isCompleted: boolean;
   assigneeId?: string; // New: Assignee for the specific subtask
+  assigneeName?: string;
+  assigneeSourceKey?: string | null;
 }
 
 export interface Task {

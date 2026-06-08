@@ -91,6 +91,14 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     }
   };
 
+  const getSubTaskAssigneeName = (subTask: SubTask) => {
+    const name = subTask.assigneeName?.trim();
+    if (name) return name;
+
+    const member = members.find(m => m.id === subTask.assigneeId);
+    return member?.name || '未指派';
+  };
+
   const toggleTimer = async () => {
     if (task.status === 'COMPLETED') return;
 
@@ -249,11 +257,16 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     const subTask = task.subTasks?.find(st => st.id === subTaskId);
     const member = members.find(m => m.id === assigneeId);
     const updatedSubTasks = (task.subTasks || []).map(st => 
-      st.id === subTaskId ? { ...st, assigneeId } : st
+      st.id === subTaskId ? {
+        ...st,
+        assigneeId,
+        assigneeName: member?.name || '',
+        assigneeSourceKey: getAssigneeSourceKey(member?.id)
+      } : st
     );
     const updatedTask = await updateTask({ 
       subTasks: updatedSubTasks,
-      history: addHistoryEntry(`👤 指派子任務 [${subTask?.title}] 給 ${member?.name}`)
+      history: addHistoryEntry(`👤 指派子任務 [${subTask?.title}] 給 ${member?.name || subTask?.assigneeName || '未指派'}`)
     }, 'Update subtask assignee');
     if (updatedTask) {
       setActiveSubTaskPicker(null);
@@ -264,12 +277,15 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     if (!newSubTaskTitle.trim()) return;
     const taskAssigneeName = (task.assigneeName || task.assignee || '').trim();
     const primaryAssignee = members.find(m => m.name === taskAssigneeName);
-    const defaultAssigneeId = primaryAssignee?.id || members[0]?.id;
+    const selectedMember = primaryAssignee || members[0];
+    const defaultAssigneeId = selectedMember?.id;
     const newSub: SubTask = {
       id: Date.now().toString(),
       title: newSubTaskTitle.trim(),
       isCompleted: false,
-      assigneeId: defaultAssigneeId
+      assigneeId: defaultAssigneeId,
+      assigneeName: selectedMember?.name || '',
+      assigneeSourceKey: getAssigneeSourceKey(selectedMember?.id)
     };
     const updatedTask = await updateTask({ 
       subTasks: [...(task.subTasks || []), newSub],
@@ -472,6 +488,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
            <div className="space-y-4">
              {subtasks.map((st, index) => {
                const assignee = members.find(m => m.id === st.assigneeId);
+               const subTaskAssigneeName = getSubTaskAssigneeName(st);
                return (
                  <div 
                    key={st.id} 
@@ -489,7 +506,12 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
                    </button>
                    <span className={`text-sm flex-1 font-medium truncate ${st.isCompleted ? 'text-gray-400 line-through' : 'dark:text-white'}`}>{st.title}</span>
                    <div className="relative">
-                     <button onClick={() => setActiveSubTaskPicker(activeSubTaskPicker === st.id ? null : st.id)} className="size-7 rounded-full overflow-hidden border-2 border-zinc-100 dark:border-zinc-800 transition-all">
+                     <button
+                      onClick={() => setActiveSubTaskPicker(activeSubTaskPicker === st.id ? null : st.id)}
+                      className="size-7 rounded-full overflow-hidden border-2 border-zinc-100 dark:border-zinc-800 transition-all"
+                      title={`指派：${subTaskAssigneeName}`}
+                      aria-label={`指派：${subTaskAssigneeName}`}
+                     >
                        {assignee ? <img src={assignee.avatar} className="size-full object-cover" alt="" /> : <div className="size-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><span className="material-symbols-outlined text-xs text-zinc-400">person_add</span></div>}
                      </button>
                      {activeSubTaskPicker === st.id && (
