@@ -32,9 +32,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate, members, curren
         <section className="bg-white dark:bg-zinc-900 rounded-[40px] p-8 shadow-sm border border-gray-50 dark:border-zinc-800 flex flex-col items-center">
            <div className="relative mb-4">
               <img src={currentUser.avatar} className="size-24 rounded-full border-4 border-primary/10 p-1 shadow-md bg-white" alt="" />
-              <div className="absolute -bottom-1 -right-1 size-8 bg-primary text-white rounded-full flex items-center justify-center border-4 border-white dark:border-zinc-900 shadow-lg">
-                <span className="material-symbols-outlined text-sm">edit</span>
-              </div>
            </div>
            <h3 className="text-xl font-black text-zinc-900 dark:text-white">{currentUser.name}</h3>
            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">

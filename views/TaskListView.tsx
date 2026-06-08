@@ -341,7 +341,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
                <h2 className="text-sm font-black dark:text-white leading-tight">{activeGroup.name}</h2>
                <span className="material-symbols-outlined text-xs text-gray-400">expand_more</span>
              </div>
-             <p className="text-[9px] text-primary font-black uppercase tracking-widest">機器人群組已連動</p>
+             <p className="text-[9px] text-primary font-black uppercase tracking-widest">測試群組 / 任務範圍</p>
            </div>
         </button>
         <div className="flex items-center gap-2">
