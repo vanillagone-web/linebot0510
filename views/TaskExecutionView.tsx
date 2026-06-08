@@ -26,11 +26,11 @@ const getAssigneeSourceKey = (memberId?: string | null) => {
 };
 
 const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, members, onNavigate, onUpdateTask, onCompleteTask, onDeleteTask }) => {
-  const task = tasks.find(t => t.id === taskId) || tasks[0];
-  const assigneeName = formatAssigneeName(task.assigneeName || task.assignee);
+  const task = taskId ? tasks.find(t => t.id === taskId) : undefined;
+  const assigneeName = task ? formatAssigneeName(task.assigneeName || task.assignee) : '';
   
   // 計算累積工時秒數 (將 actualHours 轉回秒數)
-  const initialSeconds = Math.round((task.actualHours || 0) * 3600);
+  const initialSeconds = Math.round((task?.actualHours || 0) * 3600);
   const [seconds, setSeconds] = useState(initialSeconds); 
   const [showCompleteSuccess, setShowCompleteSuccess] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
@@ -54,12 +54,12 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const [isSavingTaskEdit, setIsSavingTaskEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const isTaskRunning = task.status === 'IN_PROGRESS';
+  const isTaskRunning = task?.status === 'IN_PROGRESS';
 
   // 每當 actualHours 改變（如在其他地方被更新），同步秒數
   useEffect(() => {
-    setSeconds(Math.round((task.actualHours || 0) * 3600));
-  }, [task.actualHours]);
+    setSeconds(Math.round((task?.actualHours || 0) * 3600));
+  }, [task?.actualHours]);
 
   useEffect(() => {
     let interval: any = null;
@@ -72,6 +72,26 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
     }
     return () => clearInterval(interval);
   }, [isTaskRunning]);
+
+  if (!task) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-[#f8fafb] px-8 text-center dark:bg-background-dark">
+        <div className="mb-6 flex size-20 items-center justify-center rounded-[28px] bg-zinc-100 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-600">
+          <span className="material-symbols-outlined text-4xl">assignment_late</span>
+        </div>
+        <h2 className="text-xl font-black text-zinc-900 dark:text-white">找不到這筆任務</h2>
+        <p className="mt-3 max-w-[280px] text-sm font-bold leading-relaxed text-zinc-400">
+          這筆任務可能已被刪除、尚未載入，或不在目前任務範圍內。
+        </p>
+        <button
+          onClick={() => onNavigate('TASK_LIST')}
+          className="mt-8 h-14 rounded-2xl bg-primary px-8 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-primary/20 active:scale-95 transition-all"
+        >
+          返回任務列表
+        </button>
+      </div>
+    );
+  }
 
   const addHistoryEntry = (action: string) => {
     const entry: TaskHistoryEntry = {
