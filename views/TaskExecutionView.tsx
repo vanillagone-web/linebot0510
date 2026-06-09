@@ -62,6 +62,10 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   }, [task?.actualHours]);
 
   useEffect(() => {
+    setIsHistoryExpanded((task?.history?.length || 0) > 0);
+  }, [task?.id, task?.history?.length]);
+
+  useEffect(() => {
     let interval: any = null;
     if (isTaskRunning) {
       interval = setInterval(() => {
@@ -378,6 +382,7 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
   const completedSubTasks = subtasks.filter(st => st.isCompleted).length;
   const totalSubTasks = subtasks.length;
   const progressPercent = totalSubTasks > 0 ? (completedSubTasks / totalSubTasks) * 100 : 0;
+  const historyCount = task.history?.length || 0;
 
   return (
     <div className="flex flex-col h-full bg-[#f8fafb] dark:bg-background-dark overflow-hidden relative font-jakarta">
@@ -564,10 +569,14 @@ const TaskExecutionView: React.FC<TaskExecutionViewProps> = ({ taskId, tasks, me
         {/* History Log */}
         <div className="bg-white dark:bg-zinc-900 rounded-[32px] overflow-hidden border border-gray-100 dark:border-zinc-800 shadow-sm transition-all duration-300">
            <button onClick={() => setIsHistoryExpanded(!isHistoryExpanded)} className="w-full flex items-center justify-between p-6">
-              <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2"><span className="material-symbols-outlined text-lg">history</span>任務異動歷程</h3>
+              <h3 className="text-sm font-black dark:text-white uppercase tracking-widest flex items-center gap-2">
+                <span className="material-symbols-outlined text-lg">history</span>
+                任務異動歷程
+                <span className="text-[10px] text-zinc-400">({historyCount})</span>
+              </h3>
               <span className={`material-symbols-outlined text-zinc-300 transition-transform duration-300 ${isHistoryExpanded ? 'rotate-180' : ''}`}>keyboard_arrow_down</span>
            </button>
-           <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isHistoryExpanded ? 'max-h-[500px] border-t border-gray-50 dark:border-zinc-800' : 'max-h-0'}`}>
+           <div className={`transition-all duration-500 ease-in-out ${isHistoryExpanded ? 'max-h-[500px] overflow-x-hidden overflow-y-auto border-t border-gray-50 dark:border-zinc-800' : 'max-h-0 overflow-hidden'}`}>
               <div className="p-6 space-y-6">
                  {task.history && task.history.length > 0 ? (
                    <div className="relative pl-6 space-y-6 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-zinc-800">
