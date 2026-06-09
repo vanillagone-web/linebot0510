@@ -544,7 +544,31 @@ const TaskListView: React.FC<TaskListViewProps> = ({ onNavigate, onSelectTask, m
           }) : (
             <div className="text-center py-20">
               <span className="material-symbols-outlined text-gray-200 dark:text-zinc-800 text-6xl">cloud_off</span>
-              <p className="text-xs text-gray-400 font-bold mt-4 uppercase">此群組目前沒有任務</p>
+              {tasks.length === 0 ? (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-zinc-400 font-black mt-4">目前還沒有任務</p>
+                  <p className="text-xs text-gray-400 font-bold mt-2">新增第一個任務後，就會顯示在這裡。</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="mt-6 h-11 rounded-2xl bg-primary px-6 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                  >
+                    新增任務
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-zinc-400 font-black mt-4">沒有符合條件的任務</p>
+                  <p className="text-xs text-gray-400 font-bold mt-2">請調整搜尋或篩選條件。</p>
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="mt-6 h-11 rounded-2xl bg-zinc-900 px-6 text-[10px] font-black uppercase tracking-widest text-white shadow-lg dark:bg-white dark:text-zinc-900 active:scale-95 transition-all"
+                  >
+                    清除篩選
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
